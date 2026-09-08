@@ -80,3 +80,56 @@ print(zusammenfassung_alpha)
 
 # Faustregel zur Einordnung (Nunnally & Bernstein, 1994):
 # alpha >= .90 exzellent | >= .80 gut | >= .70 akzeptabel | < .70 fragwürdig
+
+# ---- 5. Arbeitszufriedenheit: Kernskala vs. erweiterte Skala ---------------
+# Zusatzprüfung: Wie verändert sich die interne Konsistenz, wenn man nur die
+# Subgruppe betrachtet, die zusätzlich BEIDE freiwilligen Items beantwortet
+# hat (AZ02_01 = Zufriedenheit mit Mitarbeitenden, AZ03_01 = Zufriedenheit
+# mit Kundinnen/Kunden)?
+#   (a) 6 Pflichtitems, gesamte gültige Stichprobe        [siehe Abschnitt 1]
+#   (b) dieselben 6 Pflichtitems, aber nur für die Subgruppe
+#   (c) vollständige 8-Item-Skala (6 Pflicht- + 2 freiwillige), Subgruppe
+
+subgruppe_freiwillig <- daten %>%
+  filter(!is.na(AZ02_01), !is.na(AZ03_01))
+
+n_subgruppe <- nrow(subgruppe_freiwillig)
+cat("\nN Gesamtstichprobe (6 Pflichtitems):                           ", nrow(daten), "\n")
+cat("N Subgruppe (zusätzlich beide freiwillige Items beantwortet):   ", n_subgruppe, "\n")
+
+## (b) 6 Pflichtitems, nur Subgruppe
+az6_sub_items <- subgruppe_freiwillig %>% select(AZ01_01:AZ01_06) %>% numerisch_df()
+alpha_az6_sub <- psych::alpha(az6_sub_items, check.keys = TRUE)
+
+cat("\n=== Cronbachs Alpha: 6 Pflichtitems, nur Subgruppe (n = ", n_subgruppe, ") ===\n", sep = "")
+print(alpha_az6_sub$total[, c("raw_alpha", "std.alpha", "average_r")])
+
+## (c) 8 Items (6 Pflicht- + 2 freiwillige), nur Subgruppe
+az8_sub_items <- subgruppe_freiwillig %>%
+  select(AZ01_01:AZ01_06, AZ02_01, AZ03_01) %>%
+  numerisch_df()
+alpha_az8_sub <- psych::alpha(az8_sub_items, check.keys = TRUE)
+
+cat("\n=== Cronbachs Alpha: 8 Items (inkl. freiwillige), Subgruppe (n = ", n_subgruppe, ") ===\n", sep = "")
+print(alpha_az8_sub$total[, c("raw_alpha", "std.alpha", "average_r")])
+cat("\nTrennschärfe je Item und Alpha bei Ausschluss des jeweiligen Items:\n")
+print(round(data.frame(
+  r.drop      = alpha_az8_sub$item.stats$r.drop,
+  alpha.drop  = alpha_az8_sub$alpha.drop$raw_alpha,
+  row.names   = rownames(alpha_az8_sub$item.stats)
+), 3))
+
+## Vergleichstabelle
+vergleich_az <- data.frame(
+  Variante = c("6 Pflichtitems, Gesamtstichprobe",
+               "6 Pflichtitems, Subgruppe (freiwillige Items zusätzlich beantwortet)",
+               "8 Items (6 Pflicht- + 2 freiwillige), Subgruppe"),
+  Items = c(6, 6, 8),
+  N     = c(nrow(daten), n_subgruppe, n_subgruppe),
+  Alpha = round(c(alpha_az$total$raw_alpha,
+                   alpha_az6_sub$total$raw_alpha,
+                   alpha_az8_sub$total$raw_alpha), 3)
+)
+
+cat("\n=== Vergleich: Arbeitszufriedenheit - Kernskala vs. erweiterte Skala ===\n")
+print(vergleich_az)
