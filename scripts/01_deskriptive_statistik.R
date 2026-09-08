@@ -140,6 +140,19 @@ daten <- daten %>%
 # waren freiwillig zu beantworten. Sie fließen NICHT in den Summenscore der
 # Kernskala ein, sondern werden separat für die jeweilige Subgruppe
 # deskriptiv ausgewertet (siehe Abschnitt 4.3).
+#
+# ACHTUNG - Polung prüfen: Es wird hier angenommen, dass 1 = "Extrem
+# unzufrieden" und 7 = "Extrem zufrieden" kodiert ist (aufsteigende Polung,
+# hoher Wert = hohe Zufriedenheit), sodass KEINE Umpolung notwendig ist. Diese
+# Annahme wird durch die Daten gestützt (M = 4.74 auf 1-7, d. h. Tendenz zu
+# "eher zufrieden", wie in Mitarbeiterbefragungen typisch; zudem zeigen die
+# unbereinigten Modelle in Schritt 3 bereits das hypothesenkonforme
+# Vorzeichenmuster: positiv für hb_moeglichkeit_tage, negativ für beide
+# wFoMO-Subskalen). Bitte dennoch VOR der finalen Auswertung im SoSci-
+# Feldeditor (Item AZ01_01, Reiter "Werte") die tatsächliche Kodierung der
+# Antwortoptionen gegenprüfen. Falls dort 1 = "Extrem zufrieden" hinterlegt
+# ist, müssen die Items vor der Mittelwertbildung umgepolt werden, z. B.:
+#   across(AZ01_01:AZ01_06, ~ 8 - .)
 daten <- daten %>%
   mutate(
     az_kern = rowMeans(across(AZ01_01:AZ01_06), na.rm = FALSE)
