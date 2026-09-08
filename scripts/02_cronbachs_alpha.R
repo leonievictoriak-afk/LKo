@@ -13,12 +13,18 @@
 library(dplyr)
 library(psych)
 
+# psych::alpha() benötigt eine rein numerische Matrix/data.frame. Da Excel-
+# Importe (readxl) Item-Spalten je nach Formatierung gelegentlich nicht als
+# reine Zahl einlesen, werden die Items hier vorsorglich explizit in
+# numerische Werte umgewandelt und in einen Basis-data.frame überführt.
+numerisch_df <- function(x) as.data.frame(lapply(x, as.numeric))
+
 # ---- 1. Arbeitszufriedenheit (Kernskala, 6 Items: AZ01_01 - AZ01_06) -------
-alpha_az <- daten %>%
-  select(AZ01_01:AZ01_06) %>%
-  psych::alpha(check.keys = TRUE)   # check.keys = TRUE erkennt/korrigiert automatisch
-                                     # invers gepolte Items (hier nicht der Fall,
-                                     # aber als Absicherung sinnvoll)
+az_items <- daten %>% select(AZ01_01:AZ01_06) %>% numerisch_df()
+alpha_az <- psych::alpha(az_items, check.keys = TRUE)   # check.keys = TRUE erkennt/korrigiert
+                                                          # automatisch invers gepolte Items
+                                                          # (hier nicht der Fall, aber als
+                                                          # Absicherung sinnvoll)
 
 cat("\n=== Cronbachs Alpha: Arbeitszufriedenheit (Kernskala, 6 Items) ===\n")
 print(alpha_az$total[, c("raw_alpha", "std.alpha", "average_r")])
@@ -31,9 +37,8 @@ print(round(data.frame(
 ), 3))
 
 # ---- 2. Workplace FoMO - informationale Subskala (5 Items: FM01_01-05) -----
-alpha_fomo_info <- daten %>%
-  select(FM01_01:FM01_05) %>%
-  psych::alpha(check.keys = TRUE)
+fomo_info_items <- daten %>% select(FM01_01:FM01_05) %>% numerisch_df()
+alpha_fomo_info <- psych::alpha(fomo_info_items, check.keys = TRUE)
 
 cat("\n=== Cronbachs Alpha: wFoMO informational (5 Items) ===\n")
 print(alpha_fomo_info$total[, c("raw_alpha", "std.alpha", "average_r")])
@@ -45,9 +50,8 @@ print(round(data.frame(
 ), 3))
 
 # ---- 3. Workplace FoMO - relationale Subskala (5 Items: FM01_06-10) --------
-alpha_fomo_rel <- daten %>%
-  select(FM01_06:FM01_10) %>%
-  psych::alpha(check.keys = TRUE)
+fomo_rel_items <- daten %>% select(FM01_06:FM01_10) %>% numerisch_df()
+alpha_fomo_rel <- psych::alpha(fomo_rel_items, check.keys = TRUE)
 
 cat("\n=== Cronbachs Alpha: wFoMO relational (5 Items) ===\n")
 print(alpha_fomo_rel$total[, c("raw_alpha", "std.alpha", "average_r")])
