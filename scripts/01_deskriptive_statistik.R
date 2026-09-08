@@ -20,77 +20,53 @@ library(psych)
 # ---- 1. Daten einlesen ------------------------------------------------------
 # Pfad ggf. anpassen (Datei im Arbeitsverzeichnis bzw. im Unterordner "data/")
 pfad <- "data/Umfragewerte_BA_4.xlsx"
-rohdaten <- read_excel(pfad, sheet = "arbeit-oeffentlicher-dienst")
 
-# Zeile 2 der Exportdatei enthält die Itemformulierungen (Fragetexte) und
-# keine echten Falldaten -> diese Zeile wird entfernt. CASE ist bei echten
-# Fällen immer numerisch, bei der Label-Zeile hingegen Text -> wird zu NA.
-rohdaten <- rohdaten %>%
-  mutate(CASE = suppressWarnings(as.numeric(CASE))) %>%
-  filter(!is.na(CASE))
-
-# Je nach Zellformatierung im Excel-Export liest read_excel() einzelne
-# Item-/Antwortspalten mitunter als Text statt als Zahl ein (das führt u. a.
-# zu Fehlern wie "'x' must be numeric or complex" bei rowMeans() oder zu
-# stillen Fehlzuordnungen bei Indizierungen wie hb_mitte[HB01]). Deshalb
-# werden alle relevanten Item-Spalten hier zentral in numerische Werte
-# umgewandelt, bevor sie weiterverarbeitet werden.
-item_spalten <- c(
-  paste0("AZ01_0", 1:6), "AZ02_01", "AZ03_01",
-  paste0("FM01_0", 1:9), "FM01_10",
-  "HB01", "HB02",
-  paste0("HB03_0", 1:5), paste0("HB04_0", 1:5)
-)
-
-rohdaten <- rohdaten %>%
-  mutate(across(all_of(item_spalten), ~ suppressWarnings(as.numeric(.))))
-
-# Kontrolle: Sollten die Pflicht-Items (AZ01_xx, FM01_xx, HB01/HB02) nach der
-# Umwandlung NAs enthalten, deutet das auf untypische Zeichen in der
-# Originaldatei hin (z. B. Komma statt Punkt, Leerzeichen, Text) und sollte
-# geprüft werden.
-na_check <- rohdaten %>%
-  filter(QUESTNNR == "LKo") %>%
-  summarise(across(all_of(item_spalten), ~ sum(is.na(.))))
-cat("\nAnzahl NA je Item-Spalte nach numerischer Umwandlung (sollte für\n")
-cat("AZ01_xx, FM01_xx, HB01, HB02 = 0 sein):\n")
-print(na_check)
+# Zeile 1 enthält die Variablennamen (Header), Zeile 2 enthält die
+# ausgeschriebenen Fragetexte (Item-Labels) und KEINE echten Falldaten.
+# Deshalb wird der Header separat aus Zeile 1 gelesen (n_max = 0 liest keine
+# Datenzeilen ein, nur die Spaltennamen) und anschließend beim Einlesen der
+# eigentlichen Falldaten (ab Zeile 3, also skip = 2) explizit zugewiesen.
+# Dadurch landet die Label-Zeile nie im Datensatz, und read_excel() erkennt
+# die Spaltentypen (numerisch vs. Text) korrekt anhand der echten Werte.
+header <- names(read_excel(pfad, n_max = 0))
+rohdaten <- read_excel(pfad, skip = 2, col_names = header)
 
 # ---- 2. Fallauswahl (Filterung) --------------------------------------------
 # a) nur Fragebogenversion "LKo" (nicht z. B. Interview-Testfragebögen)
-# b) nur vollständig beantwortete Interviews (STATUS == "complete" und
-#    FINISHED == 1, d. h. letzte Seite wurde erreicht)
-# c) Fälle ohne Angabe zum Geschlecht ausschließen
-#    (SD02: 1 = weiblich, 2 = männlich, 3 = divers, 4 = keine Angabe)
+# b) nur vollständig beantwortete Interviews (STATUS == "complete")
+# c) anschließend zusätzlich alle Personen mit SD02 (Geschlecht) == 4
+#    ("keine Angabe") ausschließen
 daten <- rohdaten %>%
   filter(QUESTNNR == "LKo") %>%
-  filter(STATUS == "complete", FINISHED == 1) %>%
-  filter(!is.na(SD02), SD02 != 4)
+  filter(STATUS == "complete") %>%
+  filter(SD02 != 4)
 
 n_gesamt   <- nrow(rohdaten)
 n_lko      <- rohdaten %>% filter(QUESTNNR == "LKo") %>% nrow()
 n_complete <- rohdaten %>%
-  filter(QUESTNNR == "LKo", STATUS == "complete", FINISHED == 1) %>%
+  filter(QUESTNNR == "LKo", STATUS == "complete") %>%
   nrow()
 n_final <- nrow(daten)
 
 cat("Fälle gesamt (Rohdatensatz):                     ", n_gesamt, "\n")
 cat("... davon Fragebogen 'LKo':                       ", n_lko, "\n")
-cat("... davon vollständig beantwortet:                ", n_complete, "\n")
-cat("... davon mit gültiger Geschlechtsangabe (final N):", n_final, "\n")
+cat("... davon vollständig beantwortet (STATUS complete):", n_complete, "\n")
+cat("... davon ohne 'keine Angabe' bei Geschlecht (final N):", n_final, "\n")
 
 # ---- 3. Aufbereitung der Variablen -----------------------------------------
 
 ## 3.1 Soziodemografie -------------------------------------------------------
+# Alter (SD01) und Arbeitszeit (SD03_01) sind bereits numerisch.
+# Berufserfahrung (SD04_01) wurde als Text mit Komma als Dezimaltrennzeichen
+# erhoben (z. B. "2,5") -> vor der Umwandlung wird das Komma durch einen
+# Punkt ersetzt.
 daten <- daten %>%
   mutate(
-    alter                  = as.numeric(SD01),
-    geschlecht             = factor(SD02, levels = c(1, 2, 3),
+    Alter                  = as.numeric(SD01),
+    Geschlecht             = factor(SD02, levels = c(1, 2, 3),
                                      labels = c("weiblich", "männlich", "divers")),
-    beschaeftigungsumfang  = as.numeric(SD03_01),      # in %, 100 = Vollzeit
-    # SD04_01 wurde als Text erhoben; einzelne Werte nutzen ein Komma als
-    # Dezimaltrennzeichen (z. B. "2,5") -> vor der Umwandlung ersetzen.
-    berufserfahrung        = as.numeric(gsub(",", ".", SD04_01, fixed = TRUE)),  # in Jahren
+    Arbeitszeit            = as.numeric(SD03_01),      # in %, 100 = Vollzeit
+    Berufserfahrung        = as.numeric(gsub(",", ".", SD04_01, fixed = TRUE)),  # in Jahren
     taetigkeitsbereich     = factor(SD05, levels = 1:6,
                                      labels = c("Kommunalverwaltung",
                                                 "Landesbehörde",
@@ -98,25 +74,33 @@ daten <- daten %>%
                                                 "Bildung (Schule/Hochschule)",
                                                 "Gesundheit/Soziales",
                                                 "Sonstiger öffentlicher Dienst")),
-    fuehrungsverantwortung = factor(SD06, levels = c(1, 2), labels = c("ja", "nein"))
+    Personalverantwortung = factor(SD06, levels = c(1, 2), labels = c("ja", "nein"))
   )
 
+# Kontrolle: Anzahl Fälle, bei denen die Umwandlung von Berufserfahrung
+# (Komma -> Punkt -> numerisch) zu NA geführt hat, obwohl SD04_01 ursprünglich
+# nicht leer war (z. B. weil ein Bruch wie "1 1/2" eingegeben wurde). Diese
+# Fälle sollten manuell geprüft werden.
+n_berufserfahrung_na <- sum(is.na(daten$Berufserfahrung) & !is.na(daten$SD04_01))
+cat("\nBerufserfahrung: nicht-numerisch konvertierbare, nicht-leere Angaben:",
+    n_berufserfahrung_na, "\n")
+
 ## 3.2 Homeoffice-Möglichkeit / -Nutzung (HB01/HB02) -------------------------
-# Beide Variablen wurden KATEGORIAL erhoben (11 Antwortkategorien von
-# "0 Tage" bis "5 Tage"), daher primär als Faktor auswerten (relative
-# Häufigkeiten). Zusätzlich wird eine numerische Näherung über die
-# Kategorienmitte gebildet, die für die spätere Regressionsanalyse
-# (H1: Möglichkeit zum hybriden Arbeiten) benötigt wird.
+# HB01 und HB02 wurden mit 11 Antwortkategorien ("0 Tage" bis "5 Tage")
+# KATEGORIAL erhoben. Da die Kategorien nicht als gleichabständig angenommen
+# werden können (z. B. ist der Abstand zwischen "0 Tage" und "0-1 Tag" nicht
+# zwingend gleich groß wie zwischen "4-5 Tage" und "5 Tage"), werden HB01_kat
+# und HB02_kat als reine Faktorvariablen gebildet (NICHT in eine metrische
+# "Tage"-Variable umgerechnet). In Regressionsmodellen werden sie dadurch
+# automatisch über Dummy-Kodierung (Referenzkategorie "0 Tage") berücksichtigt,
+# ohne eine bestimmte Skalierung zwischen den Kategorien zu unterstellen.
 hb_labels <- c("0 Tage", "0-1 Tag", "1 Tag", "1-2 Tage", "2 Tage",
                "2-3 Tage", "3 Tage", "3-4 Tage", "4 Tage", "4-5 Tage", "5 Tage")
-hb_mitte  <- c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)
 
 daten <- daten %>%
   mutate(
-    hb_moeglichkeit_kat  = factor(HB01, levels = 1:11, labels = hb_labels, ordered = TRUE),
-    hb_nutzung_kat       = factor(HB02, levels = 1:11, labels = hb_labels, ordered = TRUE),
-    hb_moeglichkeit_tage = hb_mitte[HB01],
-    hb_nutzung_tage      = hb_mitte[HB02]
+    HB01_kat = factor(HB01, levels = 1:11, labels = hb_labels),
+    HB02_kat = factor(HB02, levels = 1:11, labels = hb_labels)
   )
 
 ## 3.3 Workplace Fear of Missing Out (wFoMO-G, Ebner et al.) -----------------
@@ -128,35 +112,41 @@ daten <- daten %>%
 # (Zuordnung entspricht Table A1 in Ebner et al., Applied Psychology, 2026)
 daten <- daten %>%
   mutate(
-    wfomo_informational = rowMeans(across(FM01_01:FM01_05), na.rm = FALSE),
-    wfomo_relational     = rowMeans(across(FM01_06:FM01_10), na.rm = FALSE)
+    wFoMO_informational = rowMeans(across(FM01_01:FM01_05), na.rm = FALSE),
+    wFoMO_relational     = rowMeans(across(FM01_06:FM01_10), na.rm = FALSE)
   )
 
 ## 3.4 Arbeitszufriedenheit ---------------------------------------------------
-# Kernskala: 6 verpflichtende Items (AZ01_01 - AZ01_06); bei allen Fällen
-# vollständig beantwortet.
+# Zeilenmittelwert aus AZ01_01 - AZ01_06 (Kernskala, verpflichtend) sowie
 # AZ02_01 (Zufriedenheit mit Mitarbeitenden; nur bei Führungsverantwortung)
-# und AZ03_01 (Zufriedenheit mit Kundinnen/Kunden; nur bei Kundenkontakt)
-# waren freiwillig zu beantworten. Sie fließen NICHT in den Summenscore der
-# Kernskala ein, sondern werden separat für die jeweilige Subgruppe
-# deskriptiv ausgewertet (siehe Abschnitt 4.3).
+# und AZ03_01 (Zufriedenheit mit Kundinnen/Kunden; nur bei Kundenkontakt).
 #
-# ACHTUNG - Polung prüfen: Es wird hier angenommen, dass 1 = "Extrem
-# unzufrieden" und 7 = "Extrem zufrieden" kodiert ist (aufsteigende Polung,
-# hoher Wert = hohe Zufriedenheit), sodass KEINE Umpolung notwendig ist. Diese
-# Annahme wird durch die Daten gestützt (M = 4.74 auf 1-7, d. h. Tendenz zu
-# "eher zufrieden", wie in Mitarbeiterbefragungen typisch; zudem zeigen die
-# unbereinigten Modelle in Schritt 3 bereits das hypothesenkonforme
-# Vorzeichenmuster: positiv für hb_moeglichkeit_tage, negativ für beide
-# wFoMO-Subskalen). Bitte dennoch VOR der finalen Auswertung im SoSci-
-# Feldeditor (Item AZ01_01, Reiter "Werte") die tatsächliche Kodierung der
-# Antwortoptionen gegenprüfen. Falls dort 1 = "Extrem zufrieden" hinterlegt
-# ist, müssen die Items vor der Mittelwertbildung umgepolt werden, z. B.:
-#   across(AZ01_01:AZ01_06, ~ 8 - .)
+# ACHTUNG: Die Items wurden auf einer Skala von -3 bis +3 erfasst (nicht
+# 1 bis 7 wie in einer früheren Skriptversion angenommen).
+#
+# WICHTIGE KONSEQUENZ (na.rm = FALSE): Da AZ02_01 und AZ03_01 nur von einem
+# Teil der Stichprobe (Führungskräfte bzw. Personen mit Kundenkontakt)
+# beantwortet wurden, ergibt der Zeilenmittelwert für alle anderen Fälle NA.
+# Die Variable "Arbeitszufriedenheit" ist dadurch nur für die Teilstichprobe
+# definiert, die BEIDE optionalen Items zusätzlich beantwortet hat; lm() etc.
+# schließen die übrigen Fälle in den späteren Regressionsmodellen automatisch
+# per Fallausschluss (listwise deletion) aus. Die resultierende Stichprobe für
+# die Regressionsanalyse (Schritt 3 ff.) ist daher deutlich kleiner als N_final
+# oben. Bitte in Schritt 3 die tatsächliche Fallzahl (Zeile "Residual standard
+# error: ... on X degrees of freedom" bzw. n in summary()) kontrollieren.
 daten <- daten %>%
   mutate(
-    az_kern = rowMeans(across(AZ01_01:AZ01_06), na.rm = FALSE)
+    Arbeitszufriedenheit = rowMeans(
+      across(c(AZ01_01, AZ01_02, AZ01_03, AZ01_04, AZ01_05, AZ01_06, AZ02_01, AZ03_01)),
+      na.rm = FALSE
+    )
   )
+
+n_az_gueltig <- sum(!is.na(daten$Arbeitszufriedenheit))
+cat("\nArbeitszufriedenheit (8-Item-Mittelwert) gültig (nicht NA) für:",
+    n_az_gueltig, "von", n_final, "Fällen\n")
+cat("(Grund: AZ02_01 und AZ03_01 wurden nur von einem Teil der Stichprobe\n")
+cat(" beantwortet; siehe Kommentar oben.)\n")
 
 # ---- 4. Deskriptive Statistik ----------------------------------------------
 
@@ -169,36 +159,34 @@ haeufigkeitstabelle <- function(var) {
 }
 
 cat("\n--- Geschlecht ---\n")
-print(haeufigkeitstabelle(geschlecht))
+print(haeufigkeitstabelle(Geschlecht))
 
 cat("\n--- Tätigkeitsbereich ---\n")
 print(haeufigkeitstabelle(taetigkeitsbereich))
 
-cat("\n--- Führungsverantwortung ---\n")
-print(haeufigkeitstabelle(fuehrungsverantwortung))
+cat("\n--- Personalverantwortung ---\n")
+print(haeufigkeitstabelle(Personalverantwortung))
 
-cat("\n--- Homeoffice-Möglichkeit (kategorial, HB01) ---\n")
-print(haeufigkeitstabelle(hb_moeglichkeit_kat))
+cat("\n--- Homeoffice-Möglichkeit (kategorial, HB01_kat) ---\n")
+print(haeufigkeitstabelle(HB01_kat))
 
-cat("\n--- Homeoffice-Nutzung (kategorial, HB02) ---\n")
-print(haeufigkeitstabelle(hb_nutzung_kat))
+cat("\n--- Homeoffice-Nutzung (kategorial, HB02_kat) ---\n")
+print(haeufigkeitstabelle(HB02_kat))
 
 ## 4.2 M, SD, Median, Min, Max metrischer Variablen --------------------------
 metrische_variablen <- daten %>%
-  select(alter, berufserfahrung, beschaeftigungsumfang,
-         hb_moeglichkeit_tage, hb_nutzung_tage,
-         wfomo_informational, wfomo_relational, az_kern)
+  select(Alter, Berufserfahrung, Arbeitszeit,
+         wFoMO_informational, wFoMO_relational, Arbeitszufriedenheit)
 
 deskriptiv <- psych::describe(metrische_variablen) %>%
   as.data.frame() %>%
   select(n, mean, sd, median, min, max)
 
 cat("\n--- Deskriptive Statistik: metrische Variablen ---\n")
+cat("(n bei Arbeitszufriedenheit < N_final, siehe Hinweis in Abschnitt 3.4)\n")
 print(round(deskriptiv, 2))
 
-## 4.3 Optionale Arbeitszufriedenheits-Items ---------------------------------
-# Deskriptivstatistik nur auf Basis der Personen, die das jeweilige Item
-# tatsächlich beantwortet haben (nicht-fehlende Werte).
+## 4.3 Optionale Arbeitszufriedenheits-Items (deskriptiv, nur Antwortende) ---
 az_optional <- daten %>%
   select(AZ02_01, AZ03_01) %>%
   psych::describe() %>%

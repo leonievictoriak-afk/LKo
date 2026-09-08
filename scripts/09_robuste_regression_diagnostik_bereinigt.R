@@ -26,6 +26,9 @@ library(car)
 modell_reduziert_b <- modell_aic_bereinigt
 formel_reduziert_b  <- formula(modell_reduziert_b)
 
+# Anzahl der TERME (nicht Koeffizienten!) - siehe Kommentar in Schritt 5.
+n_terme_b <- length(attr(terms(modell_reduziert_b), "term.labels"))
+
 cat("\n=== Reduziertes Modell (KQ, nach AIC-Selektion, bereinigter Datensatz) ===\n")
 print(formel_reduziert_b)
 print(summary(modell_reduziert_b))
@@ -64,21 +67,35 @@ print(shapiro.test(residuals(modell_reduziert_b)))
 
 ## 4.2 Breusch-Pagan-Test: Homoskedastizität
 cat("\n--- Breusch-Pagan-Test (Homoskedastizität) ---\n")
-print(lmtest::bptest(modell_reduziert_b))
+if (n_terme_b >= 1) {
+  print(lmtest::bptest(modell_reduziert_b))
+} else {
+  cat("Das AIC-optimale Modell enthält keinen Prädiktor (nur Achsenabschnitt);\n")
+  cat("ein Test auf Homoskedastizität setzt jedoch mindestens einen Regressor\n")
+  cat("voraus und ist hier nicht durchführbar.\n")
+}
 
 ## 4.3 Varianzinflationsfaktor (VIF): Multikollinearität
 cat("\n--- Varianzinflationsfaktoren (VIF) ---\n")
-if (length(coef(modell_reduziert_b)) > 2) {
+if (n_terme_b > 1) {
   print(car::vif(modell_reduziert_b))
 } else {
-  cat("Das reduzierte Modell enthält nur einen Prädiktor - VIF ist bei nur\n")
-  cat("einem Prädiktor nicht definiert und daher nicht berechenbar.\n")
+  cat("Das reduzierte Modell enthält nur einen Prädiktor(-block) - VIF ist bei\n")
+  cat("nur einem Term nicht definiert und daher nicht berechenbar.\n")
 }
 
 ## 4.4 Durbin-Watson-Test: Autokorrelation der Residuen
 cat("\n--- Durbin-Watson-Test (Autokorrelation der Residuen) ---\n")
-print(lmtest::dwtest(modell_reduziert_b))
+if (n_terme_b >= 1) {
+  print(lmtest::dwtest(modell_reduziert_b))
+} else {
+  cat("Nicht durchführbar ohne Regressor (nur Achsenabschnitt).\n")
+}
 
 ## 4.5 RESET-Test nach Ramsey: funktionale Form/Modellspezifikation
 cat("\n--- RESET-Test nach Ramsey (funktionale Form) ---\n")
-print(lmtest::resettest(modell_reduziert_b))
+if (n_terme_b >= 1) {
+  print(lmtest::resettest(modell_reduziert_b))
+} else {
+  cat("Nicht durchführbar ohne Regressor (nur Achsenabschnitt).\n")
+}
