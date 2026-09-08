@@ -1,0 +1,6 @@
+data/*.xlsx
+data/*.xls
+data/*.csv
+.Rhistory
+.RData
+.Rproj.user/
