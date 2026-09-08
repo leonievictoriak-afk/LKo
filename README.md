@@ -17,6 +17,15 @@ bevor die Skripte ausgeführt werden.
 
 ## Skripte
 
+- `scripts/00_gesamtskript.R` — Alles-in-einer-Datei-Variante: installiert
+  fehlende Pakete automatisch, importiert die Excel-Datei und führt die
+  komplette Analyse (Schritt 1-11) in einem Durchlauf aus. Empfohlen, um die
+  Analyse einmal komplett von Anfang bis Ende laufen zu lassen (Pfad zur
+  Excel-Datei am Anfang der Datei anpassen).
+- `scripts/01_deskriptive_statistik.R` bis `scripts/11_moderationsanalyse_h3.R`
+  — dieselbe Analyse in einzelne, nacheinander auszuführende Schritte
+  aufgeteilt (z. B. für die Methodendokumentation in der Bachelorarbeit).
+  Inhaltlich identisch mit `00_gesamtskript.R`.
 - `scripts/01_deskriptive_statistik.R` — Datenimport (Header separat aus
   Zeile 1, Falldaten ab Zeile 3, da Zeile 2 nur die Item-Fragetexte enthält),
   Fallauswahl (Fragebogen "LKo", STATUS == "complete", ohne "keine Angabe"
@@ -35,4 +44,6 @@ bevor die Skripte ausgeführt werden.
   "Tage"-Variable) in die Modelle ein, H1 wird daher über einen
   Omnibus-F-Test statt über einen einzelnen Regressionskoeffizienten geprüft.
 
-Benötigte R-Pakete: `readxl`, `dplyr`, `tidyr`, `psych`.
+Benötigte R-Pakete: `readxl`, `dplyr`, `tidyr`, `psych`, `MASS`, `lmtest`,
+`car`, `robustbase` (werden von `00_gesamtskript.R` automatisch installiert,
+falls noch nicht vorhanden).
