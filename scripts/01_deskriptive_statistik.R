@@ -116,14 +116,41 @@ daten <- daten %>%
     wFoMO_relational     = rowMeans(across(FM01_06:FM01_10), na.rm = FALSE)
   )
 
-## 3.4 Arbeitszufriedenheit ---------------------------------------------------
-# Zeilenmittelwert aus AZ01_01 - AZ01_06 (Kernskala, verpflichtend) sowie
-# AZ02_01 (Zufriedenheit mit Mitarbeitenden; nur bei Führungsverantwortung)
-# und AZ03_01 (Zufriedenheit mit Kundinnen/Kunden; nur bei Kundenkontakt).
+## 3.4 Arbeitszufriedenheit (IAZ-K) -------------------------------------------
+# Die AZ-Items basieren auf der IAZ-K-Originalskala, deren Antwortstufen von
+# -3 (voll unzufrieden) bis +3 (voll zufrieden) reichen. SoSci Survey
+# kodiert Antwortoptionen beim Export jedoch grundsätzlich als fortlaufende
+# Ganzzahlen beginnend bei 1 - bei einer 7-stufigen Skala also 1 bis 7. Diese
+# SoSci-Rohwerte sind NICHT die IAZ-K-Originalwerte und dürfen nicht direkt
+# gemittelt werden. Vor der Mittelwertbildung werden sie deshalb linear auf
+# die IAZ-K-Skala zurücktransformiert:
 #
-# ACHTUNG: Die Items wurden auf einer Skala von -3 bis +3 erfasst (nicht
-# 1 bis 7 wie in einer früheren Skriptversion angenommen).
+#   IAZ-K-Wert = SoSci-Rohwert - 4
 #
+# (SoSci-Rohwert 1 -> IAZ-K -3, ..., SoSci-Rohwert 7 -> IAZ-K +3. Die
+# Spannweite bleibt mit 6 Skalenpunkten identisch - es handelt sich um eine
+# reine Verschiebung des Nullpunkts, keine Stauchung/Streckung der Skala.)
+#
+# Betroffen sind alle acht AZ-Items: AZ01_01 - AZ01_06 (Kernskala,
+# verpflichtend), AZ02_01 (Zufriedenheit mit Mitarbeitenden; nur bei
+# Führungsverantwortung) und AZ03_01 (Zufriedenheit mit Kundinnen/Kunden; nur
+# bei Kundenkontakt).
+#
+# ACHTUNG - Polung weiterhin zu prüfen: Die Rücktransformation legt NUR die
+# Spannweite fest (-3 bis +3), nicht die Richtung. Ob SoSci-Rohwert 1 einem
+# IAZ-K-Wert von -3 ("voll unzufrieden") oder +3 ("voll zufrieden")
+# entspricht, hängt davon ab, in welcher Reihenfolge die Antwortoptionen im
+# SoSci-Feldeditor definiert wurden, und lässt sich aus den Daten allein
+# nicht zweifelsfrei bestimmen. Bitte im Feldeditor (Item AZ01_01, Reiter
+# "Werte") gegenprüfen. Falls SoSci-Rohwert 1 dort "voll zufrieden" bedeutet
+# (d. h. die Transformation oben die Polung umdreht), zusätzlich mit -1
+# multiplizieren, z. B.: across(all_of(az_items_soSci), ~ -1 * (. - 4))
+az_items_soSci <- c("AZ01_01", "AZ01_02", "AZ01_03", "AZ01_04", "AZ01_05", "AZ01_06",
+                     "AZ02_01", "AZ03_01")
+
+daten <- daten %>%
+  mutate(across(all_of(az_items_soSci), ~ . - 4, .names = "{.col}_iazk"))
+
 # WICHTIGE KONSEQUENZ (na.rm = FALSE): Da AZ02_01 und AZ03_01 nur von einem
 # Teil der Stichprobe (Führungskräfte bzw. Personen mit Kundenkontakt)
 # beantwortet wurden, ergibt der Zeilenmittelwert für alle anderen Fälle NA.
@@ -137,14 +164,15 @@ daten <- daten %>%
 daten <- daten %>%
   mutate(
     Arbeitszufriedenheit = rowMeans(
-      across(c(AZ01_01, AZ01_02, AZ01_03, AZ01_04, AZ01_05, AZ01_06, AZ02_01, AZ03_01)),
+      across(c(AZ01_01_iazk, AZ01_02_iazk, AZ01_03_iazk, AZ01_04_iazk,
+               AZ01_05_iazk, AZ01_06_iazk, AZ02_01_iazk, AZ03_01_iazk)),
       na.rm = FALSE
     )
   )
 
 n_az_gueltig <- sum(!is.na(daten$Arbeitszufriedenheit))
-cat("\nArbeitszufriedenheit (8-Item-Mittelwert) gültig (nicht NA) für:",
-    n_az_gueltig, "von", n_final, "Fällen\n")
+cat("\nArbeitszufriedenheit (8-Item-Mittelwert, IAZ-K-Skala -3 bis +3) gültig ")
+cat("(nicht NA) für:", n_az_gueltig, "von", n_final, "Fällen\n")
 cat("(Grund: AZ02_01 und AZ03_01 wurden nur von einem Teil der Stichprobe\n")
 cat(" beantwortet; siehe Kommentar oben.)\n")
 
@@ -187,13 +215,14 @@ cat("(n bei Arbeitszufriedenheit < N_final, siehe Hinweis in Abschnitt 3.4)\n")
 print(round(deskriptiv, 2))
 
 ## 4.3 Optionale Arbeitszufriedenheits-Items (deskriptiv, nur Antwortende) ---
+# Auf der zurücktransformierten IAZ-K-Skala (-3 bis +3), siehe Abschnitt 3.4.
 az_optional <- daten %>%
-  select(AZ02_01, AZ03_01) %>%
+  select(AZ02_01_iazk, AZ03_01_iazk) %>%
   psych::describe() %>%
   as.data.frame() %>%
   select(n, mean, sd, median, min, max)
 
-cat("\n--- Deskriptive Statistik: optionale AZ-Items (nur Antwortende) ---\n")
-cat("AZ02_01 = Zufriedenheit mit Mitarbeitenden (nur Führungsverantwortung)\n")
-cat("AZ03_01 = Zufriedenheit mit Kundinnen/Kunden (nur Kundenkontakt)\n")
+cat("\n--- Deskriptive Statistik: optionale AZ-Items (nur Antwortende, IAZ-K -3 bis +3) ---\n")
+cat("AZ02_01_iazk = Zufriedenheit mit Mitarbeitenden (nur Führungsverantwortung)\n")
+cat("AZ03_01_iazk = Zufriedenheit mit Kundinnen/Kunden (nur Kundenkontakt)\n")
 print(round(az_optional, 2))
