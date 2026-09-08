@@ -29,6 +29,33 @@ rohdaten <- rohdaten %>%
   mutate(CASE = suppressWarnings(as.numeric(CASE))) %>%
   filter(!is.na(CASE))
 
+# Je nach Zellformatierung im Excel-Export liest read_excel() einzelne
+# Item-/Antwortspalten mitunter als Text statt als Zahl ein (das führt u. a.
+# zu Fehlern wie "'x' must be numeric or complex" bei rowMeans() oder zu
+# stillen Fehlzuordnungen bei Indizierungen wie hb_mitte[HB01]). Deshalb
+# werden alle relevanten Item-Spalten hier zentral in numerische Werte
+# umgewandelt, bevor sie weiterverarbeitet werden.
+item_spalten <- c(
+  paste0("AZ01_0", 1:6), "AZ02_01", "AZ03_01",
+  paste0("FM01_0", 1:9), "FM01_10",
+  "HB01", "HB02",
+  paste0("HB03_0", 1:5), paste0("HB04_0", 1:5)
+)
+
+rohdaten <- rohdaten %>%
+  mutate(across(all_of(item_spalten), ~ suppressWarnings(as.numeric(.))))
+
+# Kontrolle: Sollten die Pflicht-Items (AZ01_xx, FM01_xx, HB01/HB02) nach der
+# Umwandlung NAs enthalten, deutet das auf untypische Zeichen in der
+# Originaldatei hin (z. B. Komma statt Punkt, Leerzeichen, Text) und sollte
+# geprüft werden.
+na_check <- rohdaten %>%
+  filter(QUESTNNR == "LKo") %>%
+  summarise(across(all_of(item_spalten), ~ sum(is.na(.))))
+cat("\nAnzahl NA je Item-Spalte nach numerischer Umwandlung (sollte für\n")
+cat("AZ01_xx, FM01_xx, HB01, HB02 = 0 sein):\n")
+print(na_check)
+
 # ---- 2. Fallauswahl (Filterung) --------------------------------------------
 # a) nur Fragebogenversion "LKo" (nicht z. B. Interview-Testfragebögen)
 # b) nur vollständig beantwortete Interviews (STATUS == "complete" und
