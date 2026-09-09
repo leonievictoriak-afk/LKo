@@ -5,16 +5,18 @@
 # Schritt 4: AIC-basierte Modellselektion
 #
 # Voraussetzung: 01_deskriptive_statistik.R wurde bereits ausgeführt,
-#                sodass das Objekt "daten" im Workspace vorhanden ist.
+#                sodass das Objekt "Dataset" im Workspace vorhanden ist.
 ##############################################################################
 
 # ---- 1. Ausgangsmodelle -----------------------------------------------------
 # Volles Modell: alle drei theoretisch hergeleiteten Prädiktoren (H1, H2a, H2b)
-modell_voll <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
-                   data = daten)
+# HB01_ord (geordneter Faktor) wird von step()/AIC als EIN Term behandelt,
+# der entweder vollständig im Modell verbleibt oder vollständig entfernt wird.
+modell_voll <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
+                   data = Dataset)
 
 # Nullmodell (nur Achsenabschnitt) als untere Grenze der Selektion
-modell_null <- lm(az_kern ~ 1, data = daten)
+modell_null <- lm(Arbeitszufriedenheit ~ 1, data = Dataset)
 
 # ---- 2. Schrittweise Selektion nach AIC (direction = "both") ---------------
 cat("\n=== Schrittweise Modellselektion nach AIC (direction = 'both') ===\n")
@@ -40,15 +42,15 @@ if (length(coef(modell_aic)) > 1) {
 # Bei nur drei Prädiktoren lassen sich alle 2^3 = 8 möglichen Modelle
 # (inkl. Nullmodell) direkt vergleichen ("Best-Subset"-Ansatz), statt sich
 # auf den (nur lokal optimalen) Pfad der schrittweisen Selektion zu verlassen.
-praediktoren <- c("hb_moeglichkeit_tage", "wfomo_informational", "wfomo_relational")
+praediktoren <- c("HB01_ord", "wFoMO_informational", "wFoMO_relational")
 
 alle_modelle <- list(Nullmodell = modell_null)
 for (k in seq_along(praediktoren)) {
   kombinationen <- combn(praediktoren, k, simplify = FALSE)
   for (komb in kombinationen) {
-    formel <- as.formula(paste("az_kern ~", paste(komb, collapse = " + ")))
+    formel <- as.formula(paste("Arbeitszufriedenheit ~", paste(komb, collapse = " + ")))
     name <- paste(komb, collapse = " + ")
-    alle_modelle[[name]] <- lm(formel, data = daten)
+    alle_modelle[[name]] <- lm(formel, data = Dataset)
   }
 }
 

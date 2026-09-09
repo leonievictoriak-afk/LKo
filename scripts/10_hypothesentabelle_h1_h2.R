@@ -29,9 +29,14 @@ entscheidung <- function(b, p, erwartete_richtung, alpha = 0.05) {
   if (richtung_passt) "Hypothese angenommen" else "signifikant, falsche Richtung"
 }
 
+# H1 wird über den linearen Polynomkontrast des geordneten Faktors HB01_ord
+# geprüft (HB01_ord.L; siehe Schritt 3). Dieser Koeffizient ist entweder
+# vollständig im Modell enthalten (falls HB01_ord den Schritt der
+# AIC-Selektion übersteht) oder vollständig entfernt - wie ein einzelner
+# metrischer Prädiktor.
 hypothesen_basis <- data.frame(
   Hypothese  = c("H1", "H2a", "H2b"),
-  Praediktor = c("hb_moeglichkeit_tage", "wfomo_informational", "wfomo_relational"),
+  Praediktor = c("HB01_ord.L", "wFoMO_informational", "wFoMO_relational"),
   Erwartung  = c("positiv", "negativ", "negativ"),
   stringsAsFactors = FALSE
 )

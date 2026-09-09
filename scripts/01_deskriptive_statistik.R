@@ -86,6 +86,15 @@ Dataset$Arbeitszufriedenheit_kat <- cut(
 Dataset$HB01_kat <- factor(Dataset$HB01)
 Dataset$HB02_kat <- factor(Dataset$HB02)
 
+# Zusaetzlich fuer die Regressionsmodelle (Schritt 3 ff.): HB01 hat eine
+# natuerliche Rangordnung (0 Tage < 0-1 Tag < ... < 5 Tage). HB01_ord bildet
+# diese Ordnung als geordneter Faktor ab (weiterhin kategorial, KEINE
+# Tage-Metrik/Abstandsannahme wie bei einer numerischen Naeherung), damit die
+# gerichteten Hypothesen H1 und H3a/H3b ueber den linearen Polynomkontrast
+# (".L") interpretierbar bleiben. HB01_kat (ungeordnet) bleibt unveraendert
+# fuer die deskriptive Haeufigkeitsauszaehlung erhalten.
+Dataset$HB01_ord <- factor(Dataset$HB01, ordered = TRUE)
+
 # ---- 4. Deskriptive Statistik --------------------------------------------------
 
 ## 4.1 Metrische Variablen: M, SD, Median, Min, Max -------------------------------

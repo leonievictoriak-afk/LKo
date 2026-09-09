@@ -13,7 +13,7 @@
 #
 # Voraussetzung: 01_deskriptive_statistik.R, 07_regression_bereinigt.R und
 #                08_aic_selektion_bereinigt.R wurden bereits ausgeführt
-#                (Objekte "daten_bereinigt" und "modell_aic_bereinigt" im
+#                (Objekte "Dataset_bereinigt" und "modell_aic_bereinigt" im
 #                Workspace vorhanden).
 ##############################################################################
 
@@ -25,13 +25,14 @@ library(car)
 # ---- 1. Reduziertes Modell (Ergebnis der AIC-Selektion, Pfad 2) ------------
 modell_reduziert_b <- modell_aic_bereinigt
 formel_reduziert_b  <- formula(modell_reduziert_b)
+anzahl_terme_b       <- length(attr(terms(modell_reduziert_b), "term.labels"))
 
 cat("\n=== Reduziertes Modell (KQ, nach AIC-Selektion, bereinigter Datensatz) ===\n")
 print(formel_reduziert_b)
 print(summary(modell_reduziert_b))
 
 # ---- 2. Robuste Regression (Huber-M-Schätzer) auf demselben Modell ---------
-modell_robust_b <- MASS::rlm(formel_reduziert_b, data = daten_bereinigt)
+modell_robust_b <- MASS::rlm(formel_reduziert_b, data = Dataset_bereinigt)
 
 cat("\n=== Robuste Regression (rlm, Huber-M-Schätzer), bereinigter Datensatz ===\n")
 print(summary(modell_robust_b))
@@ -67,12 +68,12 @@ cat("\n--- Breusch-Pagan-Test (Homoskedastizität) ---\n")
 print(lmtest::bptest(modell_reduziert_b))
 
 ## 4.3 Varianzinflationsfaktor (VIF): Multikollinearität
-cat("\n--- Varianzinflationsfaktoren (VIF) ---\n")
-if (length(coef(modell_reduziert_b)) > 2) {
+cat("\n--- Varianzinflationsfaktoren (VIF bzw. GVIF je Term) ---\n")
+if (anzahl_terme_b > 1) {
   print(car::vif(modell_reduziert_b))
 } else {
-  cat("Das reduzierte Modell enthält nur einen Prädiktor - VIF ist bei nur\n")
-  cat("einem Prädiktor nicht definiert und daher nicht berechenbar.\n")
+  cat("Das reduzierte Modell enthält nur einen Prädiktor-Term - VIF/GVIF ist bei\n")
+  cat("nur einem Term nicht definiert und daher nicht berechenbar.\n")
 }
 
 ## 4.4 Durbin-Watson-Test: Autokorrelation der Residuen

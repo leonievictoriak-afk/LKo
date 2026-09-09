@@ -7,7 +7,7 @@
 #            Hampel-Distanz identifizierten Ausreißer, siehe Schritt 6)
 #
 # Voraussetzung: 01_deskriptive_statistik.R und 06_mm_regression_ausreisser.R
-#                wurden bereits ausgeführt (Objekte "daten" und "modell_mm"
+#                wurden bereits ausgeführt (Objekte "Dataset" und "modell_mm"
 #                im Workspace vorhanden).
 ##############################################################################
 
@@ -22,20 +22,24 @@ mad_resid       <- mad(resid_mm, constant = 1.4826)
 hampel_distanz  <- abs(resid_mm - median_resid) / mad_resid
 schwelle_hampel <- 5
 
-daten_bereinigt <- daten %>%
+Dataset_bereinigt <- Dataset %>%
   mutate(hampel_distanz = hampel_distanz) %>%
   filter(hampel_distanz <= schwelle_hampel)
 
-cat("N vor Bereinigung: ", nrow(daten), "\n")
-cat("N nach Bereinigung:", nrow(daten_bereinigt),
-    "(", nrow(daten) - nrow(daten_bereinigt), "Fall/Fälle entfernt)\n")
+cat("N vor Bereinigung: ", nrow(Dataset), "\n")
+cat("N nach Bereinigung:", nrow(Dataset_bereinigt),
+    "(", nrow(Dataset) - nrow(Dataset_bereinigt), "Fall/Fälle entfernt)\n")
 
 # ---- 2. Vollständiges Regressionsmodell (KQ) auf bereinigtem Datensatz ----
-modell_bereinigt <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
-                        data = daten_bereinigt)
+modell_bereinigt <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
+                        data = Dataset_bereinigt)
 
 cat("\n=== Multiple Regression (KQ-Methode) auf bereinigtem Datensatz ===\n")
 print(summary(modell_bereinigt))
+
+cat("\n--- Relevanter Koeffizient für H1: linearer Trend HB01_ord.L ---\n")
+koef_h1_b <- summary(modell_bereinigt)$coefficients
+print(round(koef_h1_b[grepl("^HB01_ord", rownames(koef_h1_b)), , drop = FALSE], 4))
 
 # ---- 3. Signifikanzprüfung des Gesamtmodells (F-Test) ----------------------
 f_werte  <- summary(modell_bereinigt)$fstatistic
@@ -54,27 +58,30 @@ cat("\n--- ANOVA-Tabelle (Modell vs. Residuen) ---\n")
 print(anova(modell_bereinigt))
 
 # ---- 4. Standardisierte Koeffizienten (Beta) -------------------------------
-daten_bereinigt_z <- daten_bereinigt %>%
-  mutate(across(c(az_kern, hb_moeglichkeit_tage, wfomo_informational, wfomo_relational),
+# HB01_ord bleibt kategorial (geordneter Faktor) und wird nicht mit skaliert;
+# vgl. Kommentar in Schritt 3.
+daten_bereinigt_z <- Dataset_bereinigt %>%
+  mutate(across(c(Arbeitszufriedenheit, wFoMO_informational, wFoMO_relational),
                 ~ as.numeric(scale(.))))
 
 modell_bereinigt_standardisiert <- lm(
-  az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+  Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
   data = daten_bereinigt_z
 )
 
-cat("\n=== Standardisierte Koeffizienten (Beta) ===\n")
-print(round(coef(modell_bereinigt_standardisiert)[-1], 3))
+cat("\n=== Standardisierte Koeffizienten (Beta) der metrischen Prädiktoren ===\n")
+koef_std_b <- coef(modell_bereinigt_standardisiert)
+print(round(koef_std_b[c("HB01_ord.L", "wFoMO_informational", "wFoMO_relational")], 3))
 
 # ---- 5. Vergleich: Pfad 1 (vollständiger Datensatz) vs. Pfad 2 (bereinigt) -
-modell_voll <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
-                   data = daten)
+modell_voll <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
+                   data = Dataset)
 f_voll <- summary(modell_voll)$fstatistic
 p_voll <- pf(f_voll["value"], f_voll["numdf"], f_voll["dendf"], lower.tail = FALSE)
 
 vergleich_modelle <- data.frame(
   Modell = c("Pfad 1: vollständiger Datensatz", "Pfad 2: bereinigter Datensatz"),
-  N      = c(nrow(daten), nrow(daten_bereinigt)),
+  N      = c(nrow(Dataset), nrow(Dataset_bereinigt)),
   R2     = round(c(summary(modell_voll)$r.squared, summary(modell_bereinigt)$r.squared), 3),
   F_Wert = round(c(f_voll["value"], f_wert), 2),
   p_Wert = round(c(p_voll, p_wert_f), 4)

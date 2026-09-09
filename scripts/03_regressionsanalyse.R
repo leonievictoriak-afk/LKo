@@ -9,23 +9,36 @@
 #            inkl. Signifikanzprüfung des Gesamtmodells über den F-Test
 #
 # Voraussetzung: 01_deskriptive_statistik.R wurde bereits ausgeführt,
-#                sodass das Objekt "daten" im Workspace vorhanden ist.
+#                sodass das Objekt "Dataset" im Workspace vorhanden ist.
 ##############################################################################
 
 library(dplyr)
 
 # ---- 1. Modellspezifikation -------------------------------------------------
-# AV:  az_kern              = Arbeitszufriedenheit (6-Item-Kernskala)
-# UV1: hb_moeglichkeit_tage = Möglichkeit zum hybriden Arbeiten (H1)
-# UV2: wfomo_informational  = informationale wFoMO (H2a)
-# UV3: wfomo_relational     = relationale wFoMO (H2b)
-modell_h1_h2 <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
-                    data = daten)
+# AV:  Arbeitszufriedenheit = rekodierte IAZ-K-Skala (-3 bis +3, Schritt 1)
+# UV1: HB01_ord = Homeoffice-/hybride-Arbeiten-Möglichkeit (H1)
+# UV2: wFoMO_informational  = informationale wFoMO (H2a)
+# UV3: wFoMO_relational     = relationale wFoMO (H2b)
+#
+# HB01_ord ist gemäß Schritt 1 ein GEORDNETER Faktor (11 Stufen "0 Tage" bis
+# "5 Tage"), keine metrische Tage-Näherung. R kodiert geordnete Faktoren
+# standardmäßig über orthogonale Polynomkontraste (.L = linear, .Q =
+# quadratisch, ...). Für die gerichtete Hypothese H1 ("je mehr Möglichkeit
+# zum hybriden Arbeiten, desto höher die Arbeitszufriedenheit") ist der
+# LINEARE Kontrast HB01_ord.L der relevante Koeffizient; die höhergradigen
+# Kontraste (.Q, .C, ...) verbleiben im Modell, um nicht-lineare Effekte
+# statistisch zu kontrollieren, sind selbst aber nicht Gegenstand von H1.
+modell_h1_h2 <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
+                    data = Dataset)
 
 # ---- 2. Modellzusammenfassung (Regressionskoeffizienten, t-Tests, R²) ------
 cat("\n=== Multiple Regression (KQ-Methode): Arbeitszufriedenheit ~ ")
-cat("hybrides Arbeiten + wFoMO informational + wFoMO relational ===\n")
+cat("HB01_ord (hybrides Arbeiten) + wFoMO informational + wFoMO relational ===\n")
 print(summary(modell_h1_h2))
+
+cat("\n--- Relevanter Koeffizient für H1: linearer Trend HB01_ord.L ---\n")
+koef_h1 <- summary(modell_h1_h2)$coefficients
+print(round(koef_h1[grepl("^HB01_ord", rownames(koef_h1)), , drop = FALSE], 4))
 
 # ---- 3. Signifikanzprüfung des Gesamtmodells (F-Test) ----------------------
 f_werte  <- summary(modell_h1_h2)$fstatistic
@@ -45,14 +58,21 @@ cat("\n--- ANOVA-Tabelle (Modell vs. Residuen) ---\n")
 print(anova(modell_h1_h2))
 
 # ---- 4. Standardisierte Koeffizienten (Beta) --------------------------------
-# Für den Vergleich der relativen Effektstärke der drei Prädiktoren
-# (z-standardisierte Variablen -> Regressionskoeffizient = standardisiertes Beta)
-daten_z <- daten %>%
-  mutate(across(c(az_kern, hb_moeglichkeit_tage, wfomo_informational, wfomo_relational),
+# Für den Vergleich der relativen Effektstärke: die metrischen Prädiktoren
+# (AV und wFoMO-Subskalen) werden z-standardisiert. HB01_ord ist kategorial
+# (geordneter Faktor) und wird NICHT mit skaliert; der lineare Polynomkontrast
+# HB01_ord.L liegt bereits auf einer orthogonalen, näherungsweise
+# standardisierten Skala und bleibt daher unverändert direkt vergleichbar.
+daten_z <- Dataset %>%
+  mutate(across(c(Arbeitszufriedenheit, wFoMO_informational, wFoMO_relational),
                 ~ as.numeric(scale(.))))
 
-modell_standardisiert <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+modell_standardisiert <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
                              data = daten_z)
 
-cat("\n=== Standardisierte Koeffizienten (Beta) ===\n")
-print(round(coef(modell_standardisiert)[-1], 3))
+cat("\n=== Standardisierte Koeffizienten (Beta) der metrischen Prädiktoren ===\n")
+cat("(HB01_ord.L ist ein orthogonaler Polynomkontrast, keine z-standardisierte\n")
+cat("Beta im engeren Sinn - Betrag daher nur eingeschränkt mit den beiden\n")
+cat("z-standardisierten wFoMO-Betas vergleichbar.)\n")
+koef_std <- coef(modell_standardisiert)
+print(round(koef_std[c("HB01_ord.L", "wFoMO_informational", "wFoMO_relational")], 3))

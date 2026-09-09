@@ -7,7 +7,7 @@
 #            über die Hampel-Distanz (Cut-off: Hampel-Distanz > 5)
 #
 # Voraussetzung: 01_deskriptive_statistik.R wurde bereits ausgeführt,
-#                sodass das Objekt "daten" im Workspace vorhanden ist.
+#                sodass das Objekt "Dataset" im Workspace vorhanden ist.
 ##############################################################################
 
 # install.packages("robustbase")
@@ -17,16 +17,17 @@ library(robustbase)
 # ---- 1. Volles Modell (H1 + H2a + H2b) mittels MM-Schätzer -----------------
 # lmrob() schätzt standardmäßig einen MM-Schätzer: hoher Bruchpunkt (Start
 # über S-Schätzer) kombiniert mit hoher Effizienz (M-Schritt) -> robust
-# gegenüber Ausreißern UND Hebelpunkten.
-modell_mm <- lmrob(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
-                    data = daten)
+# gegenüber Ausreißern UND Hebelpunkten. HB01_ord (geordneter Faktor) wird
+# wie in lm() über seine Polynomkontraste in die Modellmatrix aufgenommen.
+modell_mm <- lmrob(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
+                    data = Dataset)
 
 cat("\n=== Robuste MM-Regression (robustbase::lmrob) - volles Modell ===\n")
 print(summary(modell_mm))
 
 # ---- 2. Vergleich KQ- vs. MM-robuste Koeffizienten -------------------------
-modell_kq_voll <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
-                      data = daten)
+modell_kq_voll <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + wFoMO_relational,
+                      data = Dataset)
 
 vergleich_koef <- data.frame(
   Praediktor = names(coef(modell_kq_voll)),
@@ -52,7 +53,7 @@ hampel_distanz <- abs(resid_mm - median_resid) / mad_resid
 
 schwelle_hampel <- 5
 
-diagnose_tab <- daten %>%
+diagnose_tab <- Dataset %>%
   transmute(CASE,
             residuum       = round(resid_mm, 3),
             hampel_distanz = round(hampel_distanz, 2)) %>%
@@ -64,7 +65,7 @@ print(head(diagnose_tab, 15))
 ausreisser_hampel <- diagnose_tab %>% filter(hampel_distanz > schwelle_hampel)
 
 cat("\nAnzahl Fälle mit Hampel-Distanz >", schwelle_hampel, ":",
-    nrow(ausreisser_hampel), "von", nrow(daten), "\n")
+    nrow(ausreisser_hampel), "von", nrow(Dataset), "\n")
 
 cat("\n=== Als Ausreißer identifizierte Fälle (Hampel-Distanz > ",
     schwelle_hampel, ") ===\n", sep = "")
@@ -84,6 +85,6 @@ abline(h = schwelle_hampel, lty = 2, col = "red")
 if (nrow(ausreisser_hampel) > 0) {
   idx_ausreisser <- which(hampel_distanz > schwelle_hampel)
   text(idx_ausreisser, hampel_distanz[idx_ausreisser],
-       labels = daten$CASE[idx_ausreisser],
+       labels = Dataset$CASE[idx_ausreisser],
        pos = 3, cex = 0.7, col = "red")
 }

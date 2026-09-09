@@ -11,7 +11,7 @@
 #              - RESET-Test         (funktionale Form/Modellspezifikation)
 #
 # Voraussetzung: 01_deskriptive_statistik.R und 04_aic_selektion.R wurden
-#                bereits ausgeführt (Objekte "daten" und "modell_aic" im
+#                bereits ausgeführt (Objekte "Dataset" und "modell_aic" im
 #                Workspace vorhanden).
 ##############################################################################
 
@@ -23,13 +23,14 @@ library(car)
 # ---- 1. Reduziertes Modell (Ergebnis der AIC-Selektion, Schritt 4) ---------
 modell_reduziert <- modell_aic          # KQ-Modell mit den von AIC gewählten Prädiktoren
 formel_reduziert  <- formula(modell_reduziert)
+anzahl_terme      <- length(attr(terms(modell_reduziert), "term.labels"))
 
 cat("\n=== Reduziertes Modell (KQ, nach AIC-Selektion) ===\n")
 print(formel_reduziert)
 print(summary(modell_reduziert))
 
 # ---- 2. Robuste Regression (Huber-M-Schätzer) auf demselben Modell ---------
-modell_robust <- MASS::rlm(formel_reduziert, data = daten)
+modell_robust <- MASS::rlm(formel_reduziert, data = Dataset)
 
 cat("\n=== Robuste Regression (rlm, Huber-M-Schätzer) ===\n")
 print(summary(modell_robust))
@@ -66,12 +67,16 @@ cat("\n--- Breusch-Pagan-Test (Homoskedastizität) ---\n")
 print(lmtest::bptest(modell_reduziert))
 
 ## 4.3 Varianzinflationsfaktor (VIF): Multikollinearität
-cat("\n--- Varianzinflationsfaktoren (VIF) ---\n")
-if (length(coef(modell_reduziert)) > 2) {
+# HB01_ord traegt als geordneter Faktor mehrere Kontrastspalten (.L, .Q, ...)
+# bei; car::vif() liefert in diesem Fall automatisch den generalisierten VIF
+# (GVIF) je Modellterm. VIF/GVIF ist nur bei mindestens zwei Termen im Modell
+# ueberhaupt definiert (nicht: mindestens zwei Koeffizienten).
+cat("\n--- Varianzinflationsfaktoren (VIF bzw. GVIF je Term) ---\n")
+if (anzahl_terme > 1) {
   print(car::vif(modell_reduziert))
 } else {
-  cat("Das reduzierte Modell enthält nur einen Prädiktor - VIF ist bei nur\n")
-  cat("einem Prädiktor nicht definiert und daher nicht berechenbar.\n")
+  cat("Das reduzierte Modell enthält nur einen Prädiktor-Term - VIF/GVIF ist bei\n")
+  cat("nur einem Term nicht definiert und daher nicht berechenbar.\n")
 }
 
 ## 4.4 Durbin-Watson-Test: Autokorrelation der Residuen
