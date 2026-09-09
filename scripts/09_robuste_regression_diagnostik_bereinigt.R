@@ -40,7 +40,10 @@ print(summary(modell_robust_b))
 # rlm() liefert standardmäßig keine p-Werte -> approximative p-Werte über die
 # t-Verteilung mit den Residual-Freiheitsgraden ergänzen.
 koef_robust_b <- summary(modell_robust_b)$coefficients
-df_robust_b   <- modell_robust_b$df.residual
+# modell_robust_b$df.residual ist bei rlm()-Objekten nicht zuverlässig belegt
+# (haeufig NA) -> Residual-Freiheitsgrade daher direkt aus n - Rang(X)
+# bestimmen.
+df_robust_b   <- length(residuals(modell_robust_b)) - modell_robust_b$rank
 koef_robust_b <- cbind(
   koef_robust_b,
   p_wert = 2 * pt(abs(koef_robust_b[, "t value"]), df = df_robust_b, lower.tail = FALSE)

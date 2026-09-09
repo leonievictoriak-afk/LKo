@@ -39,7 +39,10 @@ print(summary(modell_robust))
 # Teststatistik unterstellt) -> approximative p-Werte über die t-Verteilung
 # mit den Residual-Freiheitsgraden ergänzen.
 koef_robust <- summary(modell_robust)$coefficients
-df_robust   <- modell_robust$df.residual
+# modell_robust$df.residual ist bei rlm()-Objekten nicht zuverlässig belegt
+# (haeufig NA) -> Residual-Freiheitsgrade daher direkt aus n - Rang(X)
+# bestimmen.
+df_robust   <- length(residuals(modell_robust)) - modell_robust$rank
 koef_robust <- cbind(
   koef_robust,
   p_wert = 2 * pt(abs(koef_robust[, "t value"]), df = df_robust, lower.tail = FALSE)

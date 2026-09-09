@@ -36,9 +36,12 @@ cat("\n=== Multiple Regression (KQ-Methode): Arbeitszufriedenheit ~ ")
 cat("HB01_ord (hybrides Arbeiten) + wFoMO informational + wFoMO relational ===\n")
 print(summary(modell_h1_h2))
 
-cat("\n--- Relevanter Koeffizient für H1: linearer Trend HB01_ord.L ---\n")
+cat("\n--- H1-Testgröße: linearer Trend HB01_ord.L (aus obiger Tabelle) ---\n")
 koef_h1 <- summary(modell_h1_h2)$coefficients
-print(round(koef_h1[grepl("^HB01_ord", rownames(koef_h1)), , drop = FALSE], 4))
+print(round(koef_h1["HB01_ord.L", , drop = FALSE], 4))
+cat("\n(zum Vergleich die höhergradigen HB01_ord-Kontraste, die nicht Teil der\n")
+cat("H1-Hypothese sind, sondern nur mögliche Nichtlinearität kontrollieren:)\n")
+print(round(koef_h1[grepl("^HB01_ord", rownames(koef_h1)) & rownames(koef_h1) != "HB01_ord.L", , drop = FALSE], 4))
 
 # ---- 3. Signifikanzprüfung des Gesamtmodells (F-Test) ----------------------
 f_werte  <- summary(modell_h1_h2)$fstatistic

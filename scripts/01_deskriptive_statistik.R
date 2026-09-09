@@ -23,8 +23,14 @@ library(psych)
 # gelesen und den Falldaten (ab Zeile 3) als Spaltennamen zugewiesen.
 filepath <- "data/Umfragewerte_BA_4.xlsx"
 
-header  <- read.xlsx(filepath, sheet = 1, rows = 1, colNames = FALSE)
-Dataset <- read.xlsx(filepath, sheet = 1, startRow = 3, colNames = FALSE)
+# skipEmptyCols = FALSE ist zwingend erforderlich: read.xlsx() entfernt sonst
+# standardmaessig Spalten, die im jeweils eingelesenen Zeilenbereich
+# vollstaendig leer sind (z. B. REF, MAILSENT bei anonymen Befragungen). Da
+# Header (Zeile 1) und Falldaten (ab Zeile 3) getrennt eingelesen werden,
+# wuerden Header und Datenspalten sonst unterschiedlich stark gekuerzt und
+# nicht mehr zueinander passen (Spaltenverschiebung).
+header  <- read.xlsx(filepath, sheet = 1, rows = 1, colNames = FALSE, skipEmptyCols = FALSE)
+Dataset <- read.xlsx(filepath, sheet = 1, startRow = 3, colNames = FALSE, skipEmptyCols = FALSE)
 colnames(Dataset) <- as.character(unlist(header[1, ]))
 
 cat("Eingelesene Faelle (Rohdatensatz, vor Filterung):", nrow(Dataset), "\n")

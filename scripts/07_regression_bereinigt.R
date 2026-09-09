@@ -37,9 +37,12 @@ modell_bereinigt <- lm(Arbeitszufriedenheit ~ HB01_ord + wFoMO_informational + w
 cat("\n=== Multiple Regression (KQ-Methode) auf bereinigtem Datensatz ===\n")
 print(summary(modell_bereinigt))
 
-cat("\n--- Relevanter Koeffizient für H1: linearer Trend HB01_ord.L ---\n")
+cat("\n--- H1-Testgröße: linearer Trend HB01_ord.L (aus obiger Tabelle) ---\n")
 koef_h1_b <- summary(modell_bereinigt)$coefficients
-print(round(koef_h1_b[grepl("^HB01_ord", rownames(koef_h1_b)), , drop = FALSE], 4))
+print(round(koef_h1_b["HB01_ord.L", , drop = FALSE], 4))
+cat("\n(zum Vergleich die höhergradigen HB01_ord-Kontraste, die nicht Teil der\n")
+cat("H1-Hypothese sind, sondern nur mögliche Nichtlinearität kontrollieren:)\n")
+print(round(koef_h1_b[grepl("^HB01_ord", rownames(koef_h1_b)) & rownames(koef_h1_b) != "HB01_ord.L", , drop = FALSE], 4))
 
 # ---- 3. Signifikanzprüfung des Gesamtmodells (F-Test) ----------------------
 f_werte  <- summary(modell_bereinigt)$fstatistic
