@@ -1,198 +1,126 @@
 ##############################################################################
 # Bachelorarbeit: Hybrides Arbeiten, Workplace FoMO (wFoMO) und
-#                 Arbeitszufriedenheit im öffentlichen Dienst
+#                 Arbeitszufriedenheit im oeffentlichen Dienst
 #
-# Schritt 1: Datenimport, Datenaufbereitung, Fallauswahl und
-#            deskriptive Statistik (relative Häufigkeiten, M, SD, Median,
-#            Minimum, Maximum)
+# Schritt 1: Datenimport, Fallauswahl, Variablenbildung und
+#            deskriptive Statistik
 #
-# Datenquelle: SoSci Survey Export "Umfragewerte_BA_4.xlsx"
-#              Sheet "arbeit-oeffentlicher-dienst"
+# angelehnt an das Modul-Skript "RSkript_robuste_Regression_und_Hampel_und_
+# stepupdown_Prozedur" (Datenimport mittels openxlsx)
+#
+# Datenquelle: SoSci-Survey-Export "Umfragewerte_BA_4.xlsx"
 ##############################################################################
 
-# ---- 0. Pakete -------------------------------------------------------------
-# install.packages(c("readxl", "dplyr", "tidyr", "psych"))
-library(readxl)
-library(dplyr)
-library(tidyr)
+# ---- 0. Pakete --------------------------------------------------------------
+# install.packages(c("openxlsx", "psych"))
+library(openxlsx)
 library(psych)
 
-# ---- 1. Daten einlesen ------------------------------------------------------
-# Pfad ggf. anpassen (Datei im Arbeitsverzeichnis bzw. im Unterordner "data/")
-pfad <- "data/Umfragewerte_BA_4.xlsx"
-rohdaten <- read_excel(pfad, sheet = "arbeit-oeffentlicher-dienst")
+# ---- 1. Datenimport ----------------------------------------------------------
+# WICHTIG: Zeile 2 der Exceldatei enthaelt die ausgeschriebenen Fragetexte
+# (Item-Labels) und KEINE echten Falldaten. Diese Zeile darf nicht als
+# Datensatz eingelesen werden. Deshalb wird der Header separat aus Zeile 1
+# gelesen und den Falldaten (ab Zeile 3) als Spaltennamen zugewiesen.
+filepath <- "data/Umfragewerte_BA_4.xlsx"
 
-# Zeile 2 der Exportdatei enthält die Itemformulierungen (Fragetexte) und
-# keine echten Falldaten -> diese Zeile wird entfernt. CASE ist bei echten
-# Fällen immer numerisch, bei der Label-Zeile hingegen Text -> wird zu NA.
-rohdaten <- rohdaten %>%
-  mutate(CASE = suppressWarnings(as.numeric(CASE))) %>%
-  filter(!is.na(CASE))
+header  <- read.xlsx(filepath, sheet = 1, rows = 1, colNames = FALSE)
+Dataset <- read.xlsx(filepath, sheet = 1, startRow = 3, colNames = FALSE)
+colnames(Dataset) <- as.character(unlist(header[1, ]))
 
-# Je nach Zellformatierung im Excel-Export liest read_excel() einzelne
-# Item-/Antwortspalten mitunter als Text statt als Zahl ein (das führt u. a.
-# zu Fehlern wie "'x' must be numeric or complex" bei rowMeans() oder zu
-# stillen Fehlzuordnungen bei Indizierungen wie hb_mitte[HB01]). Deshalb
-# werden alle relevanten Item-Spalten hier zentral in numerische Werte
-# umgewandelt, bevor sie weiterverarbeitet werden.
-item_spalten <- c(
-  paste0("AZ01_0", 1:6), "AZ02_01", "AZ03_01",
-  paste0("FM01_0", 1:9), "FM01_10",
-  "HB01", "HB02",
-  paste0("HB03_0", 1:5), paste0("HB04_0", 1:5)
+cat("Eingelesene Faelle (Rohdatensatz, vor Filterung):", nrow(Dataset), "\n")
+cat("Anzahl Spalten:                                  ", ncol(Dataset), "\n")
+
+# ---- 2. Fallauswahl -----------------------------------------------------------
+n_gesamt <- nrow(Dataset)
+
+# a) nur Fragebogenversion "LKo"; b) nur vollstaendig abgeschlossene Interviews
+Dataset <- Dataset[Dataset$QUESTNNR == "LKo" & Dataset$STATUS == "complete", ]
+n_lko_complete <- nrow(Dataset)
+
+# c) Faelle mit SD02 (Geschlecht) == 4 ("keine Angabe") ausschliessen
+Dataset$SD02 <- as.numeric(Dataset$SD02)
+Dataset <- Dataset[Dataset$SD02 != 4, ]
+n_final <- nrow(Dataset)
+
+cat("\nFaelle gesamt (Rohdatensatz):                       ", n_gesamt, "\n")
+cat("... davon QUESTNNR == 'LKo' & STATUS == 'complete':   ", n_lko_complete, "\n")
+cat("... davon ohne SD02 == 4 ('keine Angabe') (finales N):", n_final, "\n")
+
+# ---- 3. Variablenbildung ------------------------------------------------------
+
+## 3.1 Workplace FoMO (wFoMO) ---------------------------------------------------
+fomo_informational_items <- c("FM01_01", "FM01_02", "FM01_03", "FM01_04", "FM01_05")
+fomo_relational_items    <- c("FM01_06", "FM01_07", "FM01_08", "FM01_09", "FM01_10")
+
+Dataset[fomo_informational_items] <- lapply(Dataset[fomo_informational_items], as.numeric)
+Dataset[fomo_relational_items]    <- lapply(Dataset[fomo_relational_items], as.numeric)
+
+Dataset$wFoMO_informational <- rowMeans(Dataset[fomo_informational_items], na.rm = TRUE)
+Dataset$wFoMO_relational    <- rowMeans(Dataset[fomo_relational_items], na.rm = TRUE)
+
+## 3.2 Arbeitszufriedenheit (IAZ-K-Skala, rekodiert auf -3 bis +3) --------------
+# Rohskala: 1 (extrem unzufrieden) bis 7 (extrem zufrieden).
+# AZ01_01 - AZ01_06 sind Pflichtitems, AZ02_01 und AZ03_01 sind freiwillig
+# (nicht von allen Personen beantwortet). Der Skalenwert wird ueber alle
+# tatsaechlich beantworteten Items gemittelt (na.rm = TRUE).
+az_items <- c("AZ01_01", "AZ01_02", "AZ01_03", "AZ01_04", "AZ01_05", "AZ01_06",
+              "AZ02_01", "AZ03_01")
+Dataset[az_items] <- lapply(Dataset[az_items], as.numeric)
+
+az_items_rekodiert <- paste0(az_items, "_r")
+Dataset[az_items_rekodiert] <- lapply(Dataset[az_items], function(x) x - 4)
+
+Dataset$Arbeitszufriedenheit <- rowMeans(Dataset[az_items_rekodiert], na.rm = TRUE)
+
+# Interpretation gemaess IAZ-K-Handbuch:
+#   -3.00 bis -0.51 = unzufrieden | -0.50 bis +0.50 = neutral | +0.51 bis +3.00 = zufrieden
+# (Grenzen bei +/-0.505 gesetzt, damit der kontinuierliche Skalenwert korrekt
+# auf die auf zwei Nachkommastellen gerundeten Interpretationsbereiche faellt.)
+Dataset$Arbeitszufriedenheit_kat <- cut(
+  Dataset$Arbeitszufriedenheit,
+  breaks = c(-Inf, -0.505, 0.505, Inf),
+  labels = c("unzufrieden", "neutral", "zufrieden")
 )
 
-rohdaten <- rohdaten %>%
-  mutate(across(all_of(item_spalten), ~ suppressWarnings(as.numeric(.))))
+## 3.3 Homeoffice-Moeglichkeit / -Nutzung (kategorial) ---------------------------
+Dataset$HB01_kat <- factor(Dataset$HB01)
+Dataset$HB02_kat <- factor(Dataset$HB02)
 
-# Kontrolle: Sollten die Pflicht-Items (AZ01_xx, FM01_xx, HB01/HB02) nach der
-# Umwandlung NAs enthalten, deutet das auf untypische Zeichen in der
-# Originaldatei hin (z. B. Komma statt Punkt, Leerzeichen, Text) und sollte
-# geprüft werden.
-na_check <- rohdaten %>%
-  filter(QUESTNNR == "LKo") %>%
-  summarise(across(all_of(item_spalten), ~ sum(is.na(.))))
-cat("\nAnzahl NA je Item-Spalte nach numerischer Umwandlung (sollte für\n")
-cat("AZ01_xx, FM01_xx, HB01, HB02 = 0 sein):\n")
-print(na_check)
+# ---- 4. Deskriptive Statistik --------------------------------------------------
 
-# ---- 2. Fallauswahl (Filterung) --------------------------------------------
-# a) nur Fragebogenversion "LKo" (nicht z. B. Interview-Testfragebögen)
-# b) nur vollständig beantwortete Interviews (STATUS == "complete" und
-#    FINISHED == 1, d. h. letzte Seite wurde erreicht)
-# c) Fälle ohne Angabe zum Geschlecht ausschließen
-#    (SD02: 1 = weiblich, 2 = männlich, 3 = divers, 4 = keine Angabe)
-daten <- rohdaten %>%
-  filter(QUESTNNR == "LKo") %>%
-  filter(STATUS == "complete", FINISHED == 1) %>%
-  filter(!is.na(SD02), SD02 != 4)
+## 4.1 Metrische Variablen: M, SD, Median, Min, Max -------------------------------
+metrische_variablen <- Dataset[, c("wFoMO_informational", "wFoMO_relational",
+                                    "Arbeitszufriedenheit")]
 
-n_gesamt   <- nrow(rohdaten)
-n_lko      <- rohdaten %>% filter(QUESTNNR == "LKo") %>% nrow()
-n_complete <- rohdaten %>%
-  filter(QUESTNNR == "LKo", STATUS == "complete", FINISHED == 1) %>%
-  nrow()
-n_final <- nrow(daten)
-
-cat("Fälle gesamt (Rohdatensatz):                     ", n_gesamt, "\n")
-cat("... davon Fragebogen 'LKo':                       ", n_lko, "\n")
-cat("... davon vollständig beantwortet:                ", n_complete, "\n")
-cat("... davon mit gültiger Geschlechtsangabe (final N):", n_final, "\n")
-
-# ---- 3. Aufbereitung der Variablen -----------------------------------------
-
-## 3.1 Soziodemografie -------------------------------------------------------
-daten <- daten %>%
-  mutate(
-    alter                  = as.numeric(SD01),
-    geschlecht             = factor(SD02, levels = c(1, 2, 3),
-                                     labels = c("weiblich", "männlich", "divers")),
-    beschaeftigungsumfang  = as.numeric(SD03_01),      # in %, 100 = Vollzeit
-    # SD04_01 wurde als Text erhoben; einzelne Werte nutzen ein Komma als
-    # Dezimaltrennzeichen (z. B. "2,5") -> vor der Umwandlung ersetzen.
-    berufserfahrung        = as.numeric(gsub(",", ".", SD04_01, fixed = TRUE)),  # in Jahren
-    taetigkeitsbereich     = factor(SD05, levels = 1:6,
-                                     labels = c("Kommunalverwaltung",
-                                                "Landesbehörde",
-                                                "Bundesbehörde",
-                                                "Bildung (Schule/Hochschule)",
-                                                "Gesundheit/Soziales",
-                                                "Sonstiger öffentlicher Dienst")),
-    fuehrungsverantwortung = factor(SD06, levels = c(1, 2), labels = c("ja", "nein"))
-  )
-
-## 3.2 Homeoffice-Möglichkeit / -Nutzung (HB01/HB02) -------------------------
-# Beide Variablen wurden KATEGORIAL erhoben (11 Antwortkategorien von
-# "0 Tage" bis "5 Tage"), daher primär als Faktor auswerten (relative
-# Häufigkeiten). Zusätzlich wird eine numerische Näherung über die
-# Kategorienmitte gebildet, die für die spätere Regressionsanalyse
-# (H1: Möglichkeit zum hybriden Arbeiten) benötigt wird.
-hb_labels <- c("0 Tage", "0-1 Tag", "1 Tag", "1-2 Tage", "2 Tage",
-               "2-3 Tage", "3 Tage", "3-4 Tage", "4 Tage", "4-5 Tage", "5 Tage")
-hb_mitte  <- c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)
-
-daten <- daten %>%
-  mutate(
-    hb_moeglichkeit_kat  = factor(HB01, levels = 1:11, labels = hb_labels, ordered = TRUE),
-    hb_nutzung_kat       = factor(HB02, levels = 1:11, labels = hb_labels, ordered = TRUE),
-    hb_moeglichkeit_tage = hb_mitte[HB01],
-    hb_nutzung_tage      = hb_mitte[HB02]
-  )
-
-## 3.3 Workplace Fear of Missing Out (wFoMO-G, Ebner et al.) -----------------
-# Informationale Subskala (Sorge, wichtige Informationen zu verpassen):
-#   FM01_01 - FM01_05
-# Relationale Subskala (Sorge, geschäftliche Beziehungen/Kontakte zu
-# verpassen):
-#   FM01_06 - FM01_10
-# (Zuordnung entspricht Table A1 in Ebner et al., Applied Psychology, 2026)
-daten <- daten %>%
-  mutate(
-    wfomo_informational = rowMeans(across(FM01_01:FM01_05), na.rm = FALSE),
-    wfomo_relational     = rowMeans(across(FM01_06:FM01_10), na.rm = FALSE)
-  )
-
-## 3.4 Arbeitszufriedenheit ---------------------------------------------------
-# Kernskala: 6 verpflichtende Items (AZ01_01 - AZ01_06); bei allen Fällen
-# vollständig beantwortet.
-# AZ02_01 (Zufriedenheit mit Mitarbeitenden; nur bei Führungsverantwortung)
-# und AZ03_01 (Zufriedenheit mit Kundinnen/Kunden; nur bei Kundenkontakt)
-# waren freiwillig zu beantworten. Sie fließen NICHT in den Summenscore der
-# Kernskala ein, sondern werden separat für die jeweilige Subgruppe
-# deskriptiv ausgewertet (siehe Abschnitt 4.3).
-daten <- daten %>%
-  mutate(
-    az_kern = rowMeans(across(AZ01_01:AZ01_06), na.rm = FALSE)
-  )
-
-# ---- 4. Deskriptive Statistik ----------------------------------------------
-
-## 4.1 Relative Häufigkeiten kategorialer Variablen --------------------------
-haeufigkeitstabelle <- function(var) {
-  daten %>%
-    filter(!is.na({{ var }})) %>%
-    count({{ var }}, name = "n") %>%
-    mutate(Prozent = round(100 * n / sum(n), 1))
-}
-
-cat("\n--- Geschlecht ---\n")
-print(haeufigkeitstabelle(geschlecht))
-
-cat("\n--- Tätigkeitsbereich ---\n")
-print(haeufigkeitstabelle(taetigkeitsbereich))
-
-cat("\n--- Führungsverantwortung ---\n")
-print(haeufigkeitstabelle(fuehrungsverantwortung))
-
-cat("\n--- Homeoffice-Möglichkeit (kategorial, HB01) ---\n")
-print(haeufigkeitstabelle(hb_moeglichkeit_kat))
-
-cat("\n--- Homeoffice-Nutzung (kategorial, HB02) ---\n")
-print(haeufigkeitstabelle(hb_nutzung_kat))
-
-## 4.2 M, SD, Median, Min, Max metrischer Variablen --------------------------
-metrische_variablen <- daten %>%
-  select(alter, berufserfahrung, beschaeftigungsumfang,
-         hb_moeglichkeit_tage, hb_nutzung_tage,
-         wfomo_informational, wfomo_relational, az_kern)
-
-deskriptiv <- psych::describe(metrische_variablen) %>%
-  as.data.frame() %>%
-  select(n, mean, sd, median, min, max)
+deskriptiv <- psych::describe(metrische_variablen)[, c("n", "mean", "sd", "median", "min", "max")]
 
 cat("\n--- Deskriptive Statistik: metrische Variablen ---\n")
 print(round(deskriptiv, 2))
 
-## 4.3 Optionale Arbeitszufriedenheits-Items ---------------------------------
-# Deskriptivstatistik nur auf Basis der Personen, die das jeweilige Item
-# tatsächlich beantwortet haben (nicht-fehlende Werte).
-az_optional <- daten %>%
-  select(AZ02_01, AZ03_01) %>%
-  psych::describe() %>%
-  as.data.frame() %>%
-  select(n, mean, sd, median, min, max)
+## 4.2 Kategoriale Variablen: absolute & relative Haeufigkeiten -------------------
+haeufigkeitstabelle <- function(x) {
+  tab <- table(x, useNA = "no")
+  data.frame(
+    Auspraegung = names(tab),
+    n = as.integer(tab),
+    Prozent = round(100 * as.integer(tab) / sum(tab), 1)
+  )
+}
 
-cat("\n--- Deskriptive Statistik: optionale AZ-Items (nur Antwortende) ---\n")
-cat("AZ02_01 = Zufriedenheit mit Mitarbeitenden (nur Führungsverantwortung)\n")
-cat("AZ03_01 = Zufriedenheit mit Kundinnen/Kunden (nur Kundenkontakt)\n")
-print(round(az_optional, 2))
+cat("\n--- Arbeitszufriedenheit (kategorisiert) ---\n")
+print(haeufigkeitstabelle(Dataset$Arbeitszufriedenheit_kat))
+
+cat("\n--- Homeoffice-Moeglichkeit (HB01_kat) ---\n")
+print(haeufigkeitstabelle(Dataset$HB01_kat))
+
+cat("\n--- Homeoffice-Nutzung (HB02_kat) ---\n")
+print(haeufigkeitstabelle(Dataset$HB02_kat))
+
+cat("\n--- Geschlecht (SD02) ---\n")
+print(haeufigkeitstabelle(factor(Dataset$SD02, levels = c(1, 2, 3),
+                                  labels = c("weiblich", "maennlich", "divers"))))
+
+## 4.3 Antwortquote der freiwilligen Arbeitszufriedenheits-Items ------------------
+cat("\n--- Antwortquote freiwillige AZ-Items (von N =", n_final, ") ---\n")
+cat("AZ02_01 (Zufriedenheit mit Mitarbeitenden):", sum(!is.na(Dataset$AZ02_01)), "\n")
+cat("AZ03_01 (Zufriedenheit mit Kundinnen/Kunden):", sum(!is.na(Dataset$AZ03_01)), "\n")
