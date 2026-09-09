@@ -15,11 +15,12 @@
 library(dplyr)
 
 # ---- 1. Modellspezifikation -------------------------------------------------
-# AV:  az_kern              = Arbeitszufriedenheit (6-Item-Kernskala)
-# UV1: hb_moeglichkeit_tage = Möglichkeit zum hybriden Arbeiten (H1)
-# UV2: wfomo_informational  = informationale wFoMO (H2a)
-# UV3: wfomo_relational     = relationale wFoMO (H2b)
-modell_h1_h2 <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+# AV:  Arbeitszufriedenheit  = Arbeitszufriedenheit (Mittelwert AZ01_01-06,
+#                               AZ02_01, AZ03_01; umskaliert auf -3 bis +3)
+# UV1: HB01_tage              = Möglichkeit zum hybriden Arbeiten (H1)
+# UV2: Informationale_wFoMO   = informationale wFoMO (H2a)
+# UV3: Relationale_wFoMO      = relationale wFoMO (H2b)
+modell_h1_h2 <- lm(Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
                     data = daten)
 
 # ---- 2. Modellzusammenfassung (Regressionskoeffizienten, t-Tests, R²) ------
@@ -48,10 +49,10 @@ print(anova(modell_h1_h2))
 # Für den Vergleich der relativen Effektstärke der drei Prädiktoren
 # (z-standardisierte Variablen -> Regressionskoeffizient = standardisiertes Beta)
 daten_z <- daten %>%
-  mutate(across(c(az_kern, hb_moeglichkeit_tage, wfomo_informational, wfomo_relational),
+  mutate(across(c(Arbeitszufriedenheit, HB01_tage, Informationale_wFoMO, Relationale_wFoMO),
                 ~ as.numeric(scale(.))))
 
-modell_standardisiert <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+modell_standardisiert <- lm(Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
                              data = daten_z)
 
 cat("\n=== Standardisierte Koeffizienten (Beta) ===\n")

@@ -58,19 +58,18 @@ print(na_check)
 
 # ---- 2. Fallauswahl (Filterung) --------------------------------------------
 # a) nur Fragebogenversion "LKo" (nicht z. B. Interview-Testfragebögen)
-# b) nur vollständig beantwortete Interviews (STATUS == "complete" und
-#    FINISHED == 1, d. h. letzte Seite wurde erreicht)
+# b) nur vollständig beantwortete Interviews (STATUS == "complete")
 # c) Fälle ohne Angabe zum Geschlecht ausschließen
 #    (SD02: 1 = weiblich, 2 = männlich, 3 = divers, 4 = keine Angabe)
 daten <- rohdaten %>%
   filter(QUESTNNR == "LKo") %>%
-  filter(STATUS == "complete", FINISHED == 1) %>%
+  filter(STATUS == "complete") %>%
   filter(!is.na(SD02), SD02 != 4)
 
 n_gesamt   <- nrow(rohdaten)
 n_lko      <- rohdaten %>% filter(QUESTNNR == "LKo") %>% nrow()
 n_complete <- rohdaten %>%
-  filter(QUESTNNR == "LKo", STATUS == "complete", FINISHED == 1) %>%
+  filter(QUESTNNR == "LKo", STATUS == "complete") %>%
   nrow()
 n_final <- nrow(daten)
 
@@ -84,13 +83,13 @@ cat("... davon mit gültiger Geschlechtsangabe (final N):", n_final, "\n")
 ## 3.1 Soziodemografie -------------------------------------------------------
 daten <- daten %>%
   mutate(
-    alter                  = as.numeric(SD01),
-    geschlecht             = factor(SD02, levels = c(1, 2, 3),
+    Alter                  = as.numeric(SD01),
+    Geschlecht             = factor(SD02, levels = c(1, 2, 3),
                                      labels = c("weiblich", "männlich", "divers")),
-    beschaeftigungsumfang  = as.numeric(SD03_01),      # in %, 100 = Vollzeit
+    Arbeitszeit            = as.numeric(SD03_01),      # Beschäftigungsumfang in %, 100 = Vollzeit
     # SD04_01 wurde als Text erhoben; einzelne Werte nutzen ein Komma als
     # Dezimaltrennzeichen (z. B. "2,5") -> vor der Umwandlung ersetzen.
-    berufserfahrung        = as.numeric(gsub(",", ".", SD04_01, fixed = TRUE)),  # in Jahren
+    Berufserfahrung        = as.numeric(gsub(",", ".", SD04_01, fixed = TRUE)),  # in Jahren
     taetigkeitsbereich     = factor(SD05, levels = 1:6,
                                      labels = c("Kommunalverwaltung",
                                                 "Landesbehörde",
@@ -98,25 +97,26 @@ daten <- daten %>%
                                                 "Bildung (Schule/Hochschule)",
                                                 "Gesundheit/Soziales",
                                                 "Sonstiger öffentlicher Dienst")),
-    fuehrungsverantwortung = factor(SD06, levels = c(1, 2), labels = c("ja", "nein"))
+    Personalverantwortung  = factor(SD06, levels = c(1, 2), labels = c("ja", "nein"))
   )
 
 ## 3.2 Homeoffice-Möglichkeit / -Nutzung (HB01/HB02) -------------------------
 # Beide Variablen wurden KATEGORIAL erhoben (11 Antwortkategorien von
-# "0 Tage" bis "5 Tage"), daher primär als Faktor auswerten (relative
-# Häufigkeiten). Zusätzlich wird eine numerische Näherung über die
-# Kategorienmitte gebildet, die für die spätere Regressionsanalyse
-# (H1: Möglichkeit zum hybriden Arbeiten) benötigt wird.
+# "0 Tage" bis "5 Tage") und werden als Faktoren gebildet (HB01_kat,
+# HB02_kat; für relative Häufigkeiten). Zusätzlich wird eine numerische
+# Näherung über die Kategorienmitte gebildet (HB01_tage, HB02_tage), die
+# für die spätere Regressionsanalyse (H1: Möglichkeit zum hybriden
+# Arbeiten) als metrischer Prädiktor benötigt wird.
 hb_labels <- c("0 Tage", "0-1 Tag", "1 Tag", "1-2 Tage", "2 Tage",
                "2-3 Tage", "3 Tage", "3-4 Tage", "4 Tage", "4-5 Tage", "5 Tage")
 hb_mitte  <- c(0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)
 
 daten <- daten %>%
   mutate(
-    hb_moeglichkeit_kat  = factor(HB01, levels = 1:11, labels = hb_labels, ordered = TRUE),
-    hb_nutzung_kat       = factor(HB02, levels = 1:11, labels = hb_labels, ordered = TRUE),
-    hb_moeglichkeit_tage = hb_mitte[HB01],
-    hb_nutzung_tage      = hb_mitte[HB02]
+    HB01_kat  = factor(HB01, levels = 1:11, labels = hb_labels, ordered = TRUE),
+    HB02_kat  = factor(HB02, levels = 1:11, labels = hb_labels, ordered = TRUE),
+    HB01_tage = hb_mitte[HB01],
+    HB02_tage = hb_mitte[HB02]
   )
 
 ## 3.3 Workplace Fear of Missing Out (wFoMO-G, Ebner et al.) -----------------
@@ -128,21 +128,30 @@ daten <- daten %>%
 # (Zuordnung entspricht Table A1 in Ebner et al., Applied Psychology, 2026)
 daten <- daten %>%
   mutate(
-    wfomo_informational = rowMeans(across(FM01_01:FM01_05), na.rm = FALSE),
-    wfomo_relational     = rowMeans(across(FM01_06:FM01_10), na.rm = FALSE)
+    Informationale_wFoMO = rowMeans(across(FM01_01:FM01_05), na.rm = FALSE),
+    Relationale_wFoMO    = rowMeans(across(FM01_06:FM01_10), na.rm = FALSE)
   )
 
 ## 3.4 Arbeitszufriedenheit ---------------------------------------------------
-# Kernskala: 6 verpflichtende Items (AZ01_01 - AZ01_06); bei allen Fällen
-# vollständig beantwortet.
-# AZ02_01 (Zufriedenheit mit Mitarbeitenden; nur bei Führungsverantwortung)
-# und AZ03_01 (Zufriedenheit mit Kundinnen/Kunden; nur bei Kundenkontakt)
-# waren freiwillig zu beantworten. Sie fließen NICHT in den Summenscore der
-# Kernskala ein, sondern werden separat für die jeweilige Subgruppe
-# deskriptiv ausgewertet (siehe Abschnitt 4.3).
+# Alle acht AZ-Items (AZ01_01 - AZ01_06, AZ02_01, AZ03_01) sind 7-stufig
+# (1 = sehr unzufrieden ... 7 = sehr zufrieden) erhoben. Für die Analyse wird
+# die Rohskala 1-7 durch Zentrierung um den neutralen Mittelpunkt (4) auf
+# -3 bis +3 umgerechnet (Item - 4).
+# AZ02_01 (Zufriedenheit mit Mitarbeitenden) und AZ03_01 (Zufriedenheit mit
+# Kundinnen/Kunden) wurden nur den jeweils relevanten Teilgruppen
+# (Führungsverantwortung bzw. Kundenkontakt) vorgelegt und sind daher bei
+# den übrigen Fällen NA. Damit die Gesamtstichprobe (N = 464) für die
+# Regression erhalten bleibt, wird der Mittelwert über die tatsächlich
+# beantworteten Items gebildet (na.rm = TRUE): für die meisten Fälle also
+# über die 6 Pflichtitems, für die jeweiligen Teilgruppen zusätzlich über
+# 7 bzw. 8 Items.
+az_items_umkodiert <- c("AZ01_01", "AZ01_02", "AZ01_03", "AZ01_04", "AZ01_05", "AZ01_06",
+                         "AZ02_01", "AZ03_01")
+
 daten <- daten %>%
+  mutate(across(all_of(az_items_umkodiert), ~ . - 4, .names = "{.col}_m4")) %>%
   mutate(
-    az_kern = rowMeans(across(AZ01_01:AZ01_06), na.rm = FALSE)
+    Arbeitszufriedenheit = rowMeans(across(paste0(az_items_umkodiert, "_m4")), na.rm = TRUE)
   )
 
 # ---- 4. Deskriptive Statistik ----------------------------------------------
@@ -156,25 +165,25 @@ haeufigkeitstabelle <- function(var) {
 }
 
 cat("\n--- Geschlecht ---\n")
-print(haeufigkeitstabelle(geschlecht))
+print(haeufigkeitstabelle(Geschlecht))
 
 cat("\n--- Tätigkeitsbereich ---\n")
 print(haeufigkeitstabelle(taetigkeitsbereich))
 
-cat("\n--- Führungsverantwortung ---\n")
-print(haeufigkeitstabelle(fuehrungsverantwortung))
+cat("\n--- Personalverantwortung ---\n")
+print(haeufigkeitstabelle(Personalverantwortung))
 
-cat("\n--- Homeoffice-Möglichkeit (kategorial, HB01) ---\n")
-print(haeufigkeitstabelle(hb_moeglichkeit_kat))
+cat("\n--- Homeoffice-Möglichkeit (kategorial, HB01_kat) ---\n")
+print(haeufigkeitstabelle(HB01_kat))
 
-cat("\n--- Homeoffice-Nutzung (kategorial, HB02) ---\n")
-print(haeufigkeitstabelle(hb_nutzung_kat))
+cat("\n--- Homeoffice-Nutzung (kategorial, HB02_kat) ---\n")
+print(haeufigkeitstabelle(HB02_kat))
 
 ## 4.2 M, SD, Median, Min, Max metrischer Variablen --------------------------
 metrische_variablen <- daten %>%
-  select(alter, berufserfahrung, beschaeftigungsumfang,
-         hb_moeglichkeit_tage, hb_nutzung_tage,
-         wfomo_informational, wfomo_relational, az_kern)
+  select(Alter, Berufserfahrung, Arbeitszeit,
+         HB01_tage, HB02_tage,
+         Informationale_wFoMO, Relationale_wFoMO, Arbeitszufriedenheit)
 
 deskriptiv <- psych::describe(metrische_variablen) %>%
   as.data.frame() %>%

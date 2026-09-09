@@ -25,16 +25,16 @@ moderation_analyse <- function(daten_input, bezeichnung) {
   # (Aiken & West, 1991)
   daten_z <- daten_input %>%
     mutate(
-      hb_z         = as.numeric(scale(hb_moeglichkeit_tage)),
-      wfomo_info_z = as.numeric(scale(wfomo_informational)),
-      wfomo_rel_z  = as.numeric(scale(wfomo_relational))
+      hb_z         = as.numeric(scale(HB01_tage)),
+      wfomo_info_z = as.numeric(scale(Informationale_wFoMO)),
+      wfomo_rel_z  = as.numeric(scale(Relationale_wFoMO))
     )
 
   # Modell 1: Haupteffekte (H1, H2a, H2b)
-  modell_haupt <- lm(az_kern ~ hb_z + wfomo_info_z + wfomo_rel_z, data = daten_z)
+  modell_haupt <- lm(Arbeitszufriedenheit ~ hb_z + wfomo_info_z + wfomo_rel_z, data = daten_z)
 
   # Modell 2: Haupteffekte + Interaktionsterme (H3a, H3b)
-  modell_moderation <- lm(az_kern ~ hb_z + wfomo_info_z + wfomo_rel_z +
+  modell_moderation <- lm(Arbeitszufriedenheit ~ hb_z + wfomo_info_z + wfomo_rel_z +
                              hb_z:wfomo_info_z + hb_z:wfomo_rel_z,
                            data = daten_z)
 

@@ -12,7 +12,7 @@
 
 # ---- 1. Ausgangsmodelle -----------------------------------------------------
 modell_voll_bereinigt <- modell_bereinigt   # volles Modell (H1 + H2a + H2b), bereinigter Datensatz
-modell_null_bereinigt <- lm(az_kern ~ 1, data = daten_bereinigt)
+modell_null_bereinigt <- lm(Arbeitszufriedenheit ~ 1, data = daten_bereinigt)
 
 # ---- 2. Schrittweise Selektion nach AIC (direction = "both") ---------------
 cat("\n=== Schrittweise Modellselektion nach AIC (bereinigter Datensatz) ===\n")
@@ -36,13 +36,13 @@ if (length(coef(modell_aic_bereinigt)) > 1) {
 }
 
 # ---- 3. Vollständiger Modellvergleich (alle Prädiktor-Kombinationen) -------
-praediktoren <- c("hb_moeglichkeit_tage", "wfomo_informational", "wfomo_relational")
+praediktoren <- c("HB01_tage", "Informationale_wFoMO", "Relationale_wFoMO")
 
 alle_modelle <- list(Nullmodell = modell_null_bereinigt)
 for (k in seq_along(praediktoren)) {
   kombinationen <- combn(praediktoren, k, simplify = FALSE)
   for (komb in kombinationen) {
-    formel <- as.formula(paste("az_kern ~", paste(komb, collapse = " + ")))
+    formel <- as.formula(paste("Arbeitszufriedenheit ~", paste(komb, collapse = " + ")))
     name <- paste(komb, collapse = " + ")
     alle_modelle[[name]] <- lm(formel, data = daten_bereinigt)
   }
