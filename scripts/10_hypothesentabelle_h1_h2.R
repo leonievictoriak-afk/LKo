@@ -31,7 +31,7 @@ entscheidung <- function(b, p, erwartete_richtung, alpha = 0.05) {
 
 hypothesen_basis <- data.frame(
   Hypothese  = c("H1", "H2a", "H2b"),
-  Praediktor = c("hb_moeglichkeit_tage", "wfomo_informational", "wfomo_relational"),
+  Praediktor = c("HB01_tage", "Informationale_wFoMO", "Relationale_wFoMO"),
   Erwartung  = c("positiv", "negativ", "negativ"),
   stringsAsFactors = FALSE
 )

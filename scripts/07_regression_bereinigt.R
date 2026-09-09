@@ -31,7 +31,7 @@ cat("N nach Bereinigung:", nrow(daten_bereinigt),
     "(", nrow(daten) - nrow(daten_bereinigt), "Fall/Fälle entfernt)\n")
 
 # ---- 2. Vollständiges Regressionsmodell (KQ) auf bereinigtem Datensatz ----
-modell_bereinigt <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+modell_bereinigt <- lm(Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
                         data = daten_bereinigt)
 
 cat("\n=== Multiple Regression (KQ-Methode) auf bereinigtem Datensatz ===\n")
@@ -55,11 +55,11 @@ print(anova(modell_bereinigt))
 
 # ---- 4. Standardisierte Koeffizienten (Beta) -------------------------------
 daten_bereinigt_z <- daten_bereinigt %>%
-  mutate(across(c(az_kern, hb_moeglichkeit_tage, wfomo_informational, wfomo_relational),
+  mutate(across(c(Arbeitszufriedenheit, HB01_tage, Informationale_wFoMO, Relationale_wFoMO),
                 ~ as.numeric(scale(.))))
 
 modell_bereinigt_standardisiert <- lm(
-  az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+  Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
   data = daten_bereinigt_z
 )
 
@@ -67,7 +67,7 @@ cat("\n=== Standardisierte Koeffizienten (Beta) ===\n")
 print(round(coef(modell_bereinigt_standardisiert)[-1], 3))
 
 # ---- 5. Vergleich: Pfad 1 (vollständiger Datensatz) vs. Pfad 2 (bereinigt) -
-modell_voll <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+modell_voll <- lm(Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
                    data = daten)
 f_voll <- summary(modell_voll)$fstatistic
 p_voll <- pf(f_voll["value"], f_voll["numdf"], f_voll["dendf"], lower.tail = FALSE)

@@ -18,14 +18,14 @@ library(robustbase)
 # lmrob() schätzt standardmäßig einen MM-Schätzer: hoher Bruchpunkt (Start
 # über S-Schätzer) kombiniert mit hoher Effizienz (M-Schritt) -> robust
 # gegenüber Ausreißern UND Hebelpunkten.
-modell_mm <- lmrob(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+modell_mm <- lmrob(Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
                     data = daten)
 
 cat("\n=== Robuste MM-Regression (robustbase::lmrob) - volles Modell ===\n")
 print(summary(modell_mm))
 
 # ---- 2. Vergleich KQ- vs. MM-robuste Koeffizienten -------------------------
-modell_kq_voll <- lm(az_kern ~ hb_moeglichkeit_tage + wfomo_informational + wfomo_relational,
+modell_kq_voll <- lm(Arbeitszufriedenheit ~ HB01_tage + Informationale_wFoMO + Relationale_wFoMO,
                       data = daten)
 
 vergleich_koef <- data.frame(
