@@ -19,12 +19,19 @@ library(psych)
 
 # ---- 1. Daten einlesen ------------------------------------------------------
 # Pfad ggf. anpassen (Datei im Arbeitsverzeichnis bzw. im Unterordner "data/")
-pfad <- "data/Umfragewerte_BA_4.xlsx"
-rohdaten <- read_excel(pfad, sheet = "arbeit-oeffentlicher-dienst")
+pfad  <- "data/Umfragewerte_BA_4.xlsx"
+sheet <- "arbeit-oeffentlicher-dienst"
 
-# Zeile 2 der Exportdatei enthält die Itemformulierungen (Fragetexte) und
-# keine echten Falldaten -> diese Zeile wird entfernt. CASE ist bei echten
-# Fällen immer numerisch, bei der Label-Zeile hingegen Text -> wird zu NA.
+# Zeile 1 enthält die Spaltennamen (Variablencodes), Zeile 2 die
+# ausgeschriebenen Fragetexte (keine echten Antworten, sondern nur Labels).
+# Deshalb werden die Spaltennamen separat aus Zeile 1 gelesen und die
+# eigentlichen Falldaten erst ab Zeile 3 eingelesen (Zeile 2 wird komplett
+# übersprungen).
+spaltennamen <- names(read_excel(pfad, sheet = sheet, n_max = 0))
+rohdaten <- read_excel(pfad, sheet = sheet, skip = 2, col_names = spaltennamen)
+
+# Sicherheitsprüfung: CASE muss bei echten Fällen numerisch sein. Sollten
+# durch fehlerhafte Zeilen dennoch NAs auftreten, werden diese entfernt.
 rohdaten <- rohdaten %>%
   mutate(CASE = suppressWarnings(as.numeric(CASE))) %>%
   filter(!is.na(CASE))
